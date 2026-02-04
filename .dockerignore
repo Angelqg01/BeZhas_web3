@@ -1,0 +1,64 @@
+# Dependencies
+node_modules
+npm-debug.log
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+.github
+
+# Documentation
+*.md
+!README.md
+
+# Tests
+test
+tests
+*.test.js
+*.spec.js
+
+# Development
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp
+temp
+*.tmp
+
+# Build artifacts
+dist
+build
+
+# Logs
+logs
+*.log
+
+# MongoDB data
+mongo-data
+mongodb-data
+
+# Terraform
+terraform
+*.tfstate
+*.tfstate.backup
+.terraform
+
+# Scripts
+scripts
+
+# Docker
+docker-compose*.yml
+Dockerfile*
+!Dockerfile

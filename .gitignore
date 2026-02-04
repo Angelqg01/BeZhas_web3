@@ -1,0 +1,69 @@
+# Environment variables - NEVER commit these files
+.env
+.env.local
+.env.development
+.env.production
+.env.*.local
+
+# Docker sensitive files
+docker-compose.override.yml
+
+# GCP credentials and secrets
+gcp-credentials.json
+service-account-key.json
+*.pem
+*.key
+secrets/
+
+# MongoDB data
+mongo-data/
+mongodb-data/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+env/
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Terraform
+*.tfstate
+*.tfstate.backup
+.terraform/
+terraform.tfvars
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
