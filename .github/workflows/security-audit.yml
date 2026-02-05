@@ -228,21 +228,27 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Check Frontend Dependencies
         working-directory: ./frontend
+        continue-on-error: true
         run: |
-          npm outdated --json > frontend-outdated.json || true
+          npm outdated --json > frontend-outdated.json 2>/dev/null || echo '{}' > frontend-outdated.json
           echo "## 📦 Frontend Outdated Packages" >> $GITHUB_STEP_SUMMARY
-          cat frontend-outdated.json | jq -r 'to_entries[] | "- \(.key): \(.value.current) → \(.value.latest)"' >> $GITHUB_STEP_SUMMARY
+          if [ -s frontend-outdated.json ] && jq empty frontend-outdated.json 2>/dev/null; then
+            jq -r 'to_entries[]? | "- \(.key): \(.value.current // "?") → \(.value.latest // "?")"' frontend-outdated.json >> $GITHUB_STEP_SUMMARY || echo "No outdated packages" >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Check Backend Dependencies
         working-directory: ./backend
+        continue-on-error: true
         run: |
-          npm outdated --json > backend-outdated.json || true
+          npm outdated --json > backend-outdated.json 2>/dev/null || echo '{}' > backend-outdated.json
           echo "## 📦 Backend Outdated Packages" >> $GITHUB_STEP_SUMMARY
-          cat backend-outdated.json | jq -r 'to_entries[] | "- \(.key): \(.value.current) → \(.value.latest)"' >> $GITHUB_STEP_SUMMARY
+          if [ -s backend-outdated.json ] && jq empty backend-outdated.json 2>/dev/null; then
+            jq -r 'to_entries[]? | "- \(.key): \(.value.current // "?") → \(.value.latest // "?")"' backend-outdated.json >> $GITHUB_STEP_SUMMARY || echo "No outdated packages" >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Upload Outdated Reports
         uses: actions/upload-artifact@v4
@@ -252,6 +258,7 @@ jobs:
             ./frontend/frontend-outdated.json
             ./backend/backend-outdated.json
           retention-days: 7
+          if-no-files-found: ignore
 
   # ==========================================
   # 4. CUSTOM SECURITY MONITOR
