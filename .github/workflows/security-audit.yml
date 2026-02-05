@@ -1,0 +1,332 @@
+name: Security Audit & Vulnerability Scan
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Run security audit every day at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  security-events: write
+  issues: write
+
+jobs:
+  # ==========================================
+  # 1. NPM AUDIT - Frontend & Backend
+  # ==========================================
+  npm-security-audit:
+    name: NPM Security Audit
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        workspace: [frontend, backend]
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ${{ matrix.workspace }}/package-lock.json
+
+      - name: Install Dependencies
+        working-directory: ./${{ matrix.workspace }}
+        run: npm ci --audit=false
+
+      - name: Run NPM Audit (JSON Report)
+        id: npm-audit
+        working-directory: ./${{ matrix.workspace }}
+        continue-on-error: true
+        run: |
+          npm audit --json > npm-audit-report.json
+          cat npm-audit-report.json
+
+      - name: Parse Audit Results
+        id: parse-audit
+        working-directory: ./${{ matrix.workspace }}
+        run: |
+          CRITICAL=$(jq '.metadata.vulnerabilities.critical // 0' npm-audit-report.json)
+          HIGH=$(jq '.metadata.vulnerabilities.high // 0' npm-audit-report.json)
+          MODERATE=$(jq '.metadata.vulnerabilities.moderate // 0' npm-audit-report.json)
+          
+          echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "high=$HIGH" >> $GITHUB_OUTPUT
+          echo "moderate=$MODERATE" >> $GITHUB_OUTPUT
+          
+          echo "## 🔒 Security Audit - ${{ matrix.workspace }}" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔴 Critical: $CRITICAL" >> $GITHUB_STEP_SUMMARY
+          echo "- 🟠 High: $HIGH" >> $GITHUB_STEP_SUMMARY
+          echo "- 🟡 Moderate: $MODERATE" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Audit Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-${{ matrix.workspace }}
+          path: ./${{ matrix.workspace }}/npm-audit-report.json
+          retention-days: 30
+
+      - name: Fail on Critical Vulnerabilities
+        if: steps.parse-audit.outputs.critical > 0
+        run: |
+          echo "❌ CRITICAL VULNERABILITIES DETECTED: ${{ steps.parse-audit.outputs.critical }}"
+          echo "Blocking deployment. Please fix critical vulnerabilities before merging."
+          exit 1
+
+      - name: Warn on High Vulnerabilities
+        if: steps.parse-audit.outputs.high > 0
+        run: |
+          echo "⚠️  HIGH VULNERABILITIES DETECTED: ${{ steps.parse-audit.outputs.high }}"
+          echo "Please review and fix high-severity vulnerabilities."
+
+  # ==========================================
+  # 2. SOLIDITY SECURITY - Slither Analysis
+  # ==========================================
+  solidity-security:
+    name: Solidity Smart Contract Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Slither
+        run: |
+          pip install slither-analyzer
+          pip install solc-select
+          solc-select install 0.8.20
+          solc-select use 0.8.20
+
+      - name: Run Slither Analysis
+        id: slither
+        continue-on-error: true
+        run: |
+          if [ -d "./contracts" ]; then
+            slither . --json slither-report.json --exclude-dependencies || true
+            
+            # Parse results
+            if [ -f "slither-report.json" ]; then
+              HIGH=$(jq '[.results.detectors[] | select(.impact == "High")] | length' slither-report.json)
+              MEDIUM=$(jq '[.results.detectors[] | select(.impact == "Medium")] | length' slither-report.json)
+              
+              echo "high=$HIGH" >> $GITHUB_OUTPUT
+              echo "medium=$MEDIUM" >> $GITHUB_OUTPUT
+              
+              echo "## 🔐 Slither Security Analysis" >> $GITHUB_STEP_SUMMARY
+              echo "- 🔴 High Impact: $HIGH" >> $GITHUB_STEP_SUMMARY
+              echo "- 🟠 Medium Impact: $MEDIUM" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "No contracts directory found. Skipping Slither."
+          fi
+
+      - name: Upload Slither Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: slither-security-report
+          path: slither-report.json
+          retention-days: 30
+
+      - name: Fail on High-Impact Issues
+        if: steps.slither.outputs.high > 0
+        run: |
+          echo "❌ HIGH-IMPACT VULNERABILITIES IN SMART CONTRACTS"
+          exit 1
+
+  # ==========================================
+  # 3. DEPENDENCY UPDATE CHECK
+  # ==========================================
+  dependency-update-check:
+    name: Check for Outdated Dependencies
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check Frontend Dependencies
+        working-directory: ./frontend
+        run: |
+          npm outdated --json > frontend-outdated.json || true
+          echo "## 📦 Frontend Outdated Packages" >> $GITHUB_STEP_SUMMARY
+          cat frontend-outdated.json | jq -r 'to_entries[] | "- \(.key): \(.value.current) → \(.value.latest)"' >> $GITHUB_STEP_SUMMARY
+
+      - name: Check Backend Dependencies
+        working-directory: ./backend
+        run: |
+          npm outdated --json > backend-outdated.json || true
+          echo "## 📦 Backend Outdated Packages" >> $GITHUB_STEP_SUMMARY
+          cat backend-outdated.json | jq -r 'to_entries[] | "- \(.key): \(.value.current) → \(.value.latest)"' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Outdated Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: outdated-dependencies
+          path: |
+            ./frontend/frontend-outdated.json
+            ./backend/backend-outdated.json
+          retention-days: 7
+
+  # ==========================================
+  # 4. CUSTOM SECURITY MONITOR
+  # ==========================================
+  security-monitor:
+    name: CVE & Security Advisory Monitor
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Script Dependencies
+        run: |
+          cd scripts
+          npm install axios @octokit/rest
+        continue-on-error: true
+
+      - name: Run Security Monitor Script
+        id: security-monitor
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_SECURITY_WEBHOOK }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_SECURITY_CHAT_ID }}
+        run: |
+          node scripts/securityMonitor.js
+
+      - name: Upload Security Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-advisory-report
+          path: scripts/security-report.json
+          retention-days: 30
+
+  # ==========================================
+  # 5. CODE QUALITY & SECURITY LINTING
+  # ==========================================
+  eslint-security:
+    name: ESLint Security Rules
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install ESLint Plugins
+        working-directory: ./frontend
+        run: |
+          npm install --save-dev eslint-plugin-security eslint-plugin-no-unsanitized
+
+      - name: Run ESLint Security Scan
+        working-directory: ./frontend
+        continue-on-error: true
+        run: |
+          npx eslint . --ext .js,.jsx --plugin security --plugin no-unsanitized \
+            --format json --output-file eslint-security.json || true
+
+      - name: Upload ESLint Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: eslint-security-report
+          path: ./frontend/eslint-security.json
+          retention-days: 30
+
+  # ==========================================
+  # 6. CODEQL ANALYSIS (GitHub Advanced Security)
+  # ==========================================
+  codeql-analysis:
+    name: CodeQL Security Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript, python
+          queries: security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript"
+
+  # ==========================================
+  # 7. CREATE SECURITY REPORT ISSUE
+  # ==========================================
+  create-security-report:
+    name: Generate Security Summary
+    runs-on: ubuntu-latest
+    needs: [npm-security-audit, solidity-security, dependency-update-check, security-monitor]
+    if: always()
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./security-reports
+
+      - name: Generate Security Report
+        run: |
+          echo "# 🔒 Security Audit Report - $(date +'%Y-%m-%d')" > SECURITY_REPORT.md
+          echo "" >> SECURITY_REPORT.md
+          echo "## Summary" >> SECURITY_REPORT.md
+          echo "Automated security scan completed. Review artifacts for details." >> SECURITY_REPORT.md
+          echo "" >> SECURITY_REPORT.md
+          echo "### Artifacts Generated:" >> SECURITY_REPORT.md
+          ls -R security-reports/ >> SECURITY_REPORT.md
+
+      - name: Create Issue on Vulnerabilities
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 Security Vulnerabilities Detected',
+              body: `## Security Audit Failed\n\nCritical vulnerabilities detected in latest scan.\n\n**Run ID:** ${context.runId}\n**Workflow:** ${context.workflow}\n\n**Action Required:** Review security reports and fix vulnerabilities before deployment.`,
+              labels: ['security', 'critical', 'automated']
+            })

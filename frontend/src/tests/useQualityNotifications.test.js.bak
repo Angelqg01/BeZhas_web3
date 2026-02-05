@@ -1,0 +1,549 @@
+/**
+ * useQualityNotifications Hook - Unit Tests
+ * Tests for WebSocket connection, notification management, and auto-reconnect
+ */
+
+import { renderHook, act, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { useQualityNotifications } from '../hooks/useQualityNotifications';
+import { useAccount } from 'wagmi';
+
+// Mock wagmi
+vi.mock('wagmi', () => ({
+    useAccount: vi.fn()
+}));
+
+// Mock WebSocket
+class MockWebSocket {
+    constructor(url) {
+        this.url = url;
+        this.readyState = WebSocket.CONNECTING;
+        this.onopen = null;
+        this.onmessage = null;
+        this.onclose = null;
+        this.onerror = null;
+
+        // Auto-open after a short delay
+        setTimeout(() => {
+            this.readyState = WebSocket.OPEN;
+            if (this.onopen) this.onopen();
+        }, 10);
+    }
+
+    send(data) {
+        // Mock send
+    }
+
+    close() {
+        this.readyState = WebSocket.CLOSED;
+        if (this.onclose) this.onclose();
+    }
+}
+
+global.WebSocket = MockWebSocket;
+
+describe('useQualityNotifications', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        useAccount.mockReturnValue({
+            address: '0x1234567890123456789012345678901234567890',
+            isConnected: true
+        });
+    });
+
+    afterEach(() => {
+        jest.clearAllTimers();
+    });
+
+    describe('Initialization', () => {
+        it('should initialize with empty state', () => {
+            const { result } = renderHook(() => useQualityNotifications());
+
+            expect(result.current.notifications).toEqual([]);
+            expect(result.current.unreadCount).toBe(0);
+            expect(result.current.hasUnread).toBe(false);
+            expect(result.current.isConnected).toBe(false);
+        });
+
+        it('should connect to WebSocket when wallet is connected', async () => {
+            const { result } = renderHook(() => useQualityNotifications());
+
+            await waitFor(() => {
+                expect(result.current.isConnected).toBe(true);
+            });
+        });
+
+        it('should not connect when wallet is not connected', () => {
+            useAccount.mockReturnValue({
+                address: null,
+                isConnected: false
+            });
+
+            const { result } = renderHook(() => useQualityNotifications());
+
+            expect(result.current.isConnected).toBe(false);
+        });
+    });
+
+    describe('Message Handling', () => {
+        it('should handle notification messages', async () => {
+            const { result } = renderHook(() => useQualityNotifications());
+
+            await waitFor(() => {
+                expect(result.current.isConnected).toBe(true);
+            });
+
+            // Simulate incoming notification
+            act(() => {
+                const notification = {
+                    id: 1,
+                    type: 'quality_oracle:service_created',
+                    title: 'New Service Created',
+                    message: 'Service #123 has been created',
+                    timestamp: Date.now(),
+                    read: false
+                };
+
+                // Trigger message handler
+                const ws = result.current.ws;
+                if (ws && ws.onmessage) {
+                    ws.onmessage({
+                        data: JSON.stringify({
+                            type: 'notification',
+                            notification
+                        })
+                    });
+                }
+            });
+
+            expect(result.current.notifications).toHaveLength(1);
+            expect(result.current.unreadCount).toBe(1);
+            expect(result.current.hasUnread).toBe(true);
+        });
+
+        it('should handle stats update messages', async () => {
+            const { result } = renderHook(() => useQualityNotifications());
+
+            await waitFor(() => {
+                expect(result.current.isConnected).toBe(true);
+            });
+
+            act(() => {
+                const ws = result.current.ws;
+                if (ws && ws.onmessage) {
+                    ws.onmessage({
+                        data: JSON.stringify({
+                            type: 'stats',
+                            stats: {
+                                total: 10,
+                                today: 3,
+                                unread: 5
+                            }
+                        })
+                    });
+                }
+            });
+
+            expect(result.current.stats).toEqual({
+                total: 10,
+                today: 3,
+                unread: 5
+            });
+        });
+
+        it('should limit notifications to MAX_NOTIFICATIONS (50)', async () => {
+            const { result } = renderHook(() => useQualityNotifications());
+
+            await waitFor(() => {
+                expect(result.current.isConnected).toBe(true);
+            });
+
+            // Send 60 notifications
+            act(() => {
+                const ws = result.current.ws;
+                if (ws && ws.onmessage) {
+                    for (let i = 1; i <= 60; i++) {
+                        ws.onmessage({
+                            data: JSON.stringify({
+                                type: 'notification',
+                                notification: {
+                                    id: i,
+                                    type: 'quality_oracle:service_created',
+                                    title: `Notification ${i}`,
+                                    message: `Message ${i}`,
+                                    timestamp: Date.now(),
+                                    read: false
+                                }
+                            })
+                        });
+                    }
+                }
+            });
+
+            expect(result.current.notifications).toHaveLength(50);
+            // Should keep most recent 50
+            expect(result.current.notifications[0].id).toBeGreaterThan(10);
+        });
+    });
+
+    describe('Notification Management', () => {
+        it('should mark notification as read', async () => {
+            const { result } = renderHook(() => useQualityNotifications());
+
+            await waitFor(() => {
+                expect(result.current.isConnected).toBe(true);
+            });
+
+            // Add notification
+            act(() => {
+                const ws = result.current.ws;
+                if (ws && ws.onmessage) {
+                    ws.onmessage({
+                        data: JSON.stringify({
+                            type: 'notification',
+                            notification: {
+                                id: 1,
+                                type: 'quality_oracle:service_created',
+                                title: 'Test',
+                                message: 'Test message',
+                                timestamp: Date.now(),
+                                read: false
+                            }
+                        })
+                    });
+                }
+            });
+
+            expect(result.current.unreadCount).toBe(1);
+
+            // Mark as read
+            act(() => {
+                result.current.markAsRead(1);
+            });
+
+            expect(result.current.unreadCount).toBe(0);
+            expect(result.current.notifications[0].read).toBe(true);
+        });
+
+        it('should mark all notifications as read', async () => {
+            const { result } = renderHook(() => useQualityNotifications());
+
+            await waitFor(() => {
+                expect(result.current.isConnected).toBe(true);
+            });
+
+            // Add 3 notifications
+            act(() => {
+                const ws = result.current.ws;
+                if (ws && ws.onmessage) {
+                    for (let i = 1; i <= 3; i++) {
+                        ws.onmessage({
+                            data: JSON.stringify({
+                                type: 'notification',
+                                notification: {
+                                    id: i,
+                                    type: 'quality_oracle:service_created',
+                                    title: `Test ${i}`,
+                                    message: `Message ${i}`,
+                                    timestamp: Date.now(),
+                                    read: false
+                                }
+                            })
+                        });
+                    }
+                }
+            });
+
+            expect(result.current.unreadCount).toBe(3);
+
+            // Mark all as read
+            act(() => {
+                result.current.markAllAsRead();
+            });
+
+            expect(result.current.unreadCount).toBe(0);
+            result.current.notifications.forEach(n => {
+                expect(n.read).toBe(true);
+            });
+        });
+
+        it('should clear specific notification', async () => {
+            const { result } = renderHook(() => useQualityNotifications());
+
+            await waitFor(() => {
+                expect(result.current.isConnected).toBe(true);
+            });
+
+            // Add 2 notifications
+            act(() => {
+                const ws = result.current.ws;
+                if (ws && ws.onmessage) {
+                    ws.onmessage({
+                        data: JSON.stringify({
+                            type: 'notification',
+                            notification: {
+                                id: 1,
+                                type: 'quality_oracle:service_created',
+                                title: 'Test 1',
+                                message: 'Message 1',
+                                timestamp: Date.now(),
+                                read: false
+                            }
+                        })
+                    });
+                    ws.onmessage({
+                        data: JSON.stringify({
+                            type: 'notification',
+                            notification: {
+                                id: 2,
+                                type: 'quality_oracle:service_finalized',
+                                title: 'Test 2',
+                                message: 'Message 2',
+                                timestamp: Date.now(),
+                                read: false
+                            }
+                        })
+                    });
+                }
+            });
+
+            expect(result.current.notifications).toHaveLength(2);
+
+            // Clear first notification
+            act(() => {
+                result.current.clearNotification(1);
+            });
+
+            expect(result.current.notifications).toHaveLength(1);
+            expect(result.current.notifications[0].id).toBe(2);
+        });
+
+        it('should clear all notifications', async () => {
+            const { result } = renderHook(() => useQualityNotifications());
+
+            await waitFor(() => {
+                expect(result.current.isConnected).toBe(true);
+            });
+
+            // Add 3 notifications
+            act(() => {
+                const ws = result.current.ws;
+                if (ws && ws.onmessage) {
+                    for (let i = 1; i <= 3; i++) {
+                        ws.onmessage({
+                            data: JSON.stringify({
+                                type: 'notification',
+                                notification: {
+                                    id: i,
+                                    type: 'quality_oracle:service_created',
+                                    title: `Test ${i}`,
+                                    message: `Message ${i}`,
+                                    timestamp: Date.now(),
+                                    read: false
+                                }
+                            })
+                        });
+                    }
+                }
+            });
+
+            expect(result.current.notifications).toHaveLength(3);
+
+            // Clear all
+            act(() => {
+                result.current.clearAll();
+            });
+
+            expect(result.current.notifications).toHaveLength(0);
+        });
+    });
+
+    describe('Auto-Reconnect', () => {
+        it('should attempt to reconnect on connection loss', async () => {
+            jest.useFakeTimers();
+
+            const { result } = renderHook(() => useQualityNotifications());
+
+            await waitFor(() => {
+                expect(result.current.isConnected).toBe(true);
+            });
+
+            // Simulate connection loss
+            act(() => {
+                const ws = result.current.ws;
+                if (ws) {
+                    ws.close();
+                }
+            });
+
+            expect(result.current.isConnected).toBe(false);
+
+            // Fast-forward RECONNECT_DELAY (3000ms)
+            act(() => {
+                jest.advanceTimersByTime(3000);
+            });
+
+            await waitFor(() => {
+                expect(result.current.isConnected).toBe(true);
+            });
+
+            jest.useRealTimers();
+        });
+
+        it('should give up after MAX_RECONNECT_ATTEMPTS (5)', async () => {
+            jest.useFakeTimers();
+
+            // Mock WebSocket to always fail
+            class FailingWebSocket extends MockWebSocket {
+                constructor(url) {
+                    super(url);
+                    setTimeout(() => {
+                        this.readyState = WebSocket.CLOSED;
+                        if (this.onerror) this.onerror(new Error('Connection failed'));
+                        if (this.onclose) this.onclose();
+                    }, 10);
+                }
+            }
+
+            global.WebSocket = FailingWebSocket;
+
+            const { result } = renderHook(() => useQualityNotifications());
+
+            // Wait for initial connection attempt
+            await act(async () => {
+                jest.advanceTimersByTime(10);
+            });
+
+            // Simulate 5 reconnection attempts
+            for (let i = 0; i < 5; i++) {
+                await act(async () => {
+                    jest.advanceTimersByTime(3000); // RECONNECT_DELAY
+                    jest.advanceTimersByTime(10); // Connection failure delay
+                });
+            }
+
+            // Should have given up
+            expect(result.current.isConnected).toBe(false);
+
+            // Restore original WebSocket
+            global.WebSocket = MockWebSocket;
+            jest.useRealTimers();
+        });
+
+        it('should manually reconnect', async () => {
+            const { result } = renderHook(() => useQualityNotifications());
+
+            await waitFor(() => {
+                expect(result.current.isConnected).toBe(true);
+            });
+
+            // Close connection
+            act(() => {
+                const ws = result.current.ws;
+                if (ws) {
+                    ws.close();
+                }
+            });
+
+            expect(result.current.isConnected).toBe(false);
+
+            // Manual reconnect
+            act(() => {
+                result.current.reconnect();
+            });
+
+            await waitFor(() => {
+                expect(result.current.isConnected).toBe(true);
+            });
+        });
+    });
+
+    describe('Computed Values', () => {
+        it('should calculate unreadCount correctly', async () => {
+            const { result } = renderHook(() => useQualityNotifications());
+
+            await waitFor(() => {
+                expect(result.current.isConnected).toBe(true);
+            });
+
+            // Add 3 unread, 2 read notifications
+            act(() => {
+                const ws = result.current.ws;
+                if (ws && ws.onmessage) {
+                    for (let i = 1; i <= 5; i++) {
+                        ws.onmessage({
+                            data: JSON.stringify({
+                                type: 'notification',
+                                notification: {
+                                    id: i,
+                                    type: 'quality_oracle:service_created',
+                                    title: `Test ${i}`,
+                                    message: `Message ${i}`,
+                                    timestamp: Date.now(),
+                                    read: i > 3 // First 3 unread, last 2 read
+                                }
+                            })
+                        });
+                    }
+                }
+            });
+
+            expect(result.current.unreadCount).toBe(3);
+        });
+
+        it('should calculate hasUnread correctly', async () => {
+            const { result } = renderHook(() => useQualityNotifications());
+
+            await waitFor(() => {
+                expect(result.current.isConnected).toBe(true);
+            });
+
+            expect(result.current.hasUnread).toBe(false);
+
+            // Add unread notification
+            act(() => {
+                const ws = result.current.ws;
+                if (ws && ws.onmessage) {
+                    ws.onmessage({
+                        data: JSON.stringify({
+                            type: 'notification',
+                            notification: {
+                                id: 1,
+                                type: 'quality_oracle:service_created',
+                                title: 'Test',
+                                message: 'Test message',
+                                timestamp: Date.now(),
+                                read: false
+                            }
+                        })
+                    });
+                }
+            });
+
+            expect(result.current.hasUnread).toBe(true);
+
+            // Mark as read
+            act(() => {
+                result.current.markAsRead(1);
+            });
+
+            expect(result.current.hasUnread).toBe(false);
+        });
+    });
+
+    describe('Cleanup', () => {
+        it('should close WebSocket on unmount', async () => {
+            const { result, unmount } = renderHook(() => useQualityNotifications());
+
+            await waitFor(() => {
+                expect(result.current.isConnected).toBe(true);
+            });
+
+            const closeSpy = jest.spyOn(result.current.ws, 'close');
+
+            unmount();
+
+            expect(closeSpy).toHaveBeenCalled();
+        });
+    });
+});

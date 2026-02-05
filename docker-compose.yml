@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:6.0
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+
+  # Optional: add a local hardhat node container if you want to run Solidity tests inside compose.
+  # This example uses the standard hardhat image via node and runs `npx hardhat node` on start.
+  hardhat:
+    image: node:18
+    working_dir: /usr/src/app
+    volumes:
+      - ./:/usr/src/app
+    command: sh -c "npm install --no-audit --no-fund && npx hardhat node --hostname 0.0.0.0"
+    ports:
+      - "8545:8545"
+    restart: "no"
+
+  backend:
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
+    working_dir: /usr/src/app/backend
+    volumes:
+      - ./backend:/usr/src/app/backend
+      - /usr/src/app/backend/node_modules
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - MONGODB_URI=mongodb://mongo:27017/bezhas
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - mongo
+      - redis
+
+  frontend:
+    build:
+      context: .
+      dockerfile: ./frontend/Dockerfile
+    working_dir: /usr/src/app/frontend
+    volumes:
+      - ./frontend:/usr/src/app/frontend
+      - /usr/src/app/frontend/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:3001
+    depends_on:
+      - backend
+
+  aegis:
+    build:
+      context: ./aegis
+      dockerfile: Dockerfile
+    working_dir: /usr/src/app/aegis
+    volumes:
+      - ./aegis:/usr/src/app/aegis
+    ports:
+      - "8001:8001"
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/bezhas_aegis
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - AEGIS_PORT=8001
+      - AEGIS_HOST=0.0.0.0
+    depends_on:
+      - mongo
+      - redis
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg14
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=bezhas
+      - POSTGRES_PASSWORD=bezhas
+      - POSTGRES_DB=bezhas_analytics
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+
+volumes:
+  mongo-data:
+  timescale_data:

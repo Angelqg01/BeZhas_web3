@@ -1,0 +1,8 @@
+# Ignorar todos los archivos subidos
+*
+
+# Excepto este archivo
+!.gitignore
+
+# Mantener la estructura del directorio
+!.gitkeep

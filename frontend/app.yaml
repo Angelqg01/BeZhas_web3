@@ -1,0 +1,94 @@
+# ===================================================
+# BeZhas Frontend - App Engine Configuration
+# ===================================================
+# Deploy with: gcloud app deploy frontend/app.yaml
+# ===================================================
+
+runtime: nodejs20
+service: default
+
+# Instance configuration
+instance_class: F1
+
+# Auto-scaling configuration
+automatic_scaling:
+  min_instances: 1
+  max_instances: 5
+  min_idle_instances: 1
+  max_idle_instances: 2
+  target_cpu_utilization: 0.75
+  target_throughput_utilization: 0.75
+  max_concurrent_requests: 100
+
+# Environment variables
+env_variables:
+  NODE_ENV: "production"
+
+# Build configuration - uses Vite build
+build_env_variables:
+  VITE_API_URL: "https://api-dot-PROJECT_ID.uc.r.appspot.com"
+  VITE_WS_URL: "wss://api-dot-PROJECT_ID.uc.r.appspot.com"
+  VITE_CHAIN_ID: "137"
+  VITE_NETWORK: "polygon"
+
+# Handlers for static files
+handlers:
+  # Static assets with long cache
+  - url: /assets/(.*)
+    static_files: dist/assets/\1
+    upload: dist/assets/.*
+    secure: always
+    expiration: "365d"
+    http_headers:
+      Cache-Control: "public, max-age=31536000, immutable"
+      X-Content-Type-Options: "nosniff"
+
+  # PWA manifest
+  - url: /manifest.json
+    static_files: dist/manifest.json
+    upload: dist/manifest.json
+    secure: always
+    expiration: "1d"
+
+  # Service worker
+  - url: /sw.js
+    static_files: dist/sw.js
+    upload: dist/sw.js
+    secure: always
+    expiration: "0s"
+    http_headers:
+      Cache-Control: "no-cache, no-store, must-revalidate"
+
+  # PWA icons
+  - url: /(pwa-.*.png)
+    static_files: dist/\1
+    upload: dist/pwa-.*.png
+    secure: always
+    expiration: "30d"
+
+  # Favicon
+  - url: /favicon.ico
+    static_files: dist/favicon.ico
+    upload: dist/favicon.ico
+    secure: always
+    expiration: "7d"
+
+  # Logo
+  - url: /logo.png
+    static_files: dist/logo.png
+    upload: dist/logo.png
+    secure: always
+    expiration: "7d"
+
+  # SPA fallback - all other routes to index.html
+  - url: /.*
+    static_files: dist/index.html
+    upload: dist/index.html
+    secure: always
+    expiration: "5m"
+    http_headers:
+      Cache-Control: "public, max-age=300"
+      X-Frame-Options: "SAMEORIGIN"
+      X-Content-Type-Options: "nosniff"
+      X-XSS-Protection: "1; mode=block"
+      Referrer-Policy: "strict-origin-when-cross-origin"

@@ -1,0 +1,2141 @@
+import React, { useState, useEffect } from 'react';
+import {
+    Key,
+    Plus,
+    Trash2,
+    RefreshCw,
+    Settings,
+    Activity,
+    AlertCircle,
+    Copy,
+    Check,
+    Eye,
+    EyeOff,
+    BarChart3,
+    Shield,
+    Globe,
+    Zap,
+    Code,
+    Webhook,
+    FileCode,
+    Book,
+    Terminal,
+    Trophy,
+    TrendingUp,
+    Target
+} from 'lucide-react';
+import axios from 'axios';
+import { toast } from 'react-hot-toast';
+import { useAccount } from 'wagmi';
+import ToolBezTab from '../components/ToolBezTab';
+
+const DeveloperConsole = () => {
+    const { address, isConnected } = useAccount();
+    const [apiKeys, setApiKeys] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [selectedKey, setSelectedKey] = useState(null);
+    const [showKeyModal, setShowKeyModal] = useState(false);
+    const [newKeyData, setNewKeyData] = useState(null);
+    const [activeTab, setActiveTab] = useState('keys'); // keys, sdk, webhooks, embed, docs, toolbez, loyalty
+    const [backendAvailable, setBackendAvailable] = useState(true);
+    const [toolbezStats, setToolbezStats] = useState(null);
+    const [usageStats, setUsageStats] = useState(null);
+
+    // Permisos disponibles por módulo
+    const permissionModules = {
+        marketplace: {
+            icon: Globe,
+            label: 'Marketplace',
+            color: 'purple',
+            permissions: [
+                { id: 'marketplace:read', label: 'Leer productos' },
+                { id: 'marketplace:write', label: 'Crear/Actualizar productos' },
+                { id: 'marketplace:delete', label: 'Eliminar productos' }
+            ]
+        },
+        logistics: {
+            icon: Activity,
+            label: 'Logística',
+            color: 'blue',
+            permissions: [
+                { id: 'logistics:read', label: 'Ver tracking' },
+                { id: 'logistics:write', label: 'Actualizar envíos' },
+                { id: 'logistics:fleet', label: 'Gestión de flotas' }
+            ]
+        },
+        payments: {
+            icon: Shield,
+            label: 'Pagos & Escrow',
+            color: 'green',
+            permissions: [
+                { id: 'payments:read', label: 'Consultar pagos' },
+                { id: 'payments:escrow:create', label: 'Crear Escrow' },
+                { id: 'payments:escrow:release', label: 'Liberar fondos' },
+                { id: 'payments:swap', label: 'Intercambio de tokens' }
+            ]
+        },
+        ai: {
+            icon: Zap,
+            label: 'IA & Moderación',
+            color: 'pink',
+            permissions: [
+                { id: 'ai:moderate', label: 'Moderar contenido' },
+                { id: 'ai:translate', label: 'Traducir' },
+                { id: 'ai:analyze', label: 'Análisis de imagen' }
+            ]
+        },
+        identity: {
+            icon: Shield,
+            label: 'Identidad & KYC',
+            color: 'orange',
+            permissions: [
+                { id: 'identity:read', label: 'Leer perfiles' },
+                { id: 'identity:verify', label: 'Verificar KYC' }
+            ]
+        },
+        realestate: {
+            icon: Globe,
+            label: 'Real Estate',
+            color: 'indigo',
+            permissions: [
+                { id: 'realestate:tokenize', label: 'Tokenizar propiedades' },
+                { id: 'realestate:fractionate', label: 'Fraccionar activos' },
+                { id: 'realestate:manage', label: 'Gestionar propiedades' },
+                { id: 'realestate:rent:collect', label: 'Cobrar rentas' }
+            ]
+        },
+        healthcare: {
+            icon: Activity,
+            label: 'Healthcare',
+            color: 'red',
+            permissions: [
+                { id: 'healthcare:prescriptions:verify', label: 'Verificar recetas' },
+                { id: 'healthcare:supply:track', label: 'Rastrear medicamentos' },
+                { id: 'healthcare:records:read', label: 'Leer historiales' },
+                { id: 'healthcare:records:write', label: 'Escribir historiales' },
+                { id: 'healthcare:compliance:audit', label: 'Auditar cumplimiento' }
+            ]
+        },
+        automotive: {
+            icon: Globe,
+            label: 'Automotive',
+            color: 'yellow',
+            permissions: [
+                { id: 'automotive:vehicle:tokenize', label: 'Tokenizar vehículos' },
+                { id: 'automotive:parts:sync', label: 'Sincronizar autopartes' },
+                { id: 'automotive:maintenance:log', label: 'Registrar mantenimiento' },
+                { id: 'automotive:history:read', label: 'Leer historial' },
+                { id: 'automotive:ownership:transfer', label: 'Transferir propiedad' }
+            ]
+        },
+        manufacturing: {
+            icon: Activity,
+            label: 'Manufacturing',
+            color: 'gray',
+            permissions: [
+                { id: 'manufacturing:iot:read', label: 'Leer sensores IoT' },
+                { id: 'manufacturing:quality:certify', label: 'Certificar calidad' },
+                { id: 'manufacturing:supply:track', label: 'Rastrear supply chain' },
+                { id: 'manufacturing:twin:create', label: 'Crear gemelo digital' },
+                { id: 'manufacturing:compliance:verify', label: 'Verificar compliance' }
+            ]
+        },
+        energy: {
+            icon: Zap,
+            label: 'Energy',
+            color: 'green',
+            permissions: [
+                { id: 'energy:credits:trade', label: 'Comerciar créditos' },
+                { id: 'energy:consumption:track', label: 'Rastrear consumo' },
+                { id: 'energy:grid:balance', label: 'Balancear red' },
+                { id: 'energy:renewable:certify', label: 'Certificar renovables' },
+                { id: 'energy:meters:read', label: 'Leer medidores' }
+            ]
+        },
+        agriculture: {
+            icon: Globe,
+            label: 'Agriculture',
+            color: 'green',
+            permissions: [
+                { id: 'agriculture:harvest:certify', label: 'Certificar cosecha' },
+                { id: 'agriculture:supply:track', label: 'Rastrear supply chain' },
+                { id: 'agriculture:land:tokenize', label: 'Tokenizar tierras' },
+                { id: 'agriculture:organic:verify', label: 'Verificar orgánico' },
+                { id: 'agriculture:iot:sensors', label: 'Sensores de campo' }
+            ]
+        },
+        education: {
+            icon: Shield,
+            label: 'Education',
+            color: 'blue',
+            permissions: [
+                { id: 'education:credentials:issue', label: 'Emitir credenciales' },
+                { id: 'education:credentials:verify', label: 'Verificar credenciales' },
+                { id: 'education:courses:manage', label: 'Gestionar cursos' },
+                { id: 'education:enrollment:track', label: 'Rastrear inscripciones' },
+                { id: 'education:certificates:mint', label: 'Mintear certificados' }
+            ]
+        },
+        insurance: {
+            icon: Shield,
+            label: 'Insurance',
+            color: 'purple',
+            permissions: [
+                { id: 'insurance:policy:create', label: 'Crear pólizas' },
+                { id: 'insurance:claim:process', label: 'Procesar reclamos' },
+                { id: 'insurance:claim:verify', label: 'Verificar reclamos' },
+                { id: 'insurance:oracle:trigger', label: 'Trigger oráculos' },
+                { id: 'insurance:premium:calculate', label: 'Calcular primas' }
+            ]
+        },
+        entertainment: {
+            icon: Globe,
+            label: 'Entertainment',
+            color: 'pink',
+            permissions: [
+                { id: 'entertainment:nft:mint', label: 'Mintear NFTs' },
+                { id: 'entertainment:royalties:distribute', label: 'Distribuir regalías' },
+                { id: 'entertainment:rights:manage', label: 'Gestionar derechos' },
+                { id: 'entertainment:tickets:issue', label: 'Emitir tickets' },
+                { id: 'entertainment:streaming:track', label: 'Rastrear streaming' }
+            ]
+        },
+        legal: {
+            icon: Shield,
+            label: 'Legal',
+            color: 'indigo',
+            permissions: [
+                { id: 'legal:contract:deploy', label: 'Desplegar contratos' },
+                { id: 'legal:notarize', label: 'Notarizar documentos' },
+                { id: 'legal:dispute:arbitrate', label: 'Arbitrar disputas' },
+                { id: 'legal:documents:verify', label: 'Verificar documentos' },
+                { id: 'legal:signatures:collect', label: 'Recolectar firmas' }
+            ]
+        },
+        supply_chain: {
+            icon: Activity,
+            label: 'Supply Chain',
+            color: 'orange',
+            permissions: [
+                { id: 'supply:provenance:track', label: 'Rastrear proveniencia' },
+                { id: 'supply:compliance:verify', label: 'Verificar compliance' },
+                { id: 'supply:carbon:offset', label: 'Offset de carbono' },
+                { id: 'supply:customs:clear', label: 'Despacho aduanero' },
+                { id: 'supply:warehouse:manage', label: 'Gestionar almacenes' }
+            ]
+        },
+        government: {
+            icon: Shield,
+            label: 'Government',
+            color: 'red',
+            permissions: [
+                { id: 'gov:identity:issue', label: 'Emitir identidades' },
+                { id: 'gov:identity:verify', label: 'Verificar identidades' },
+                { id: 'gov:vote:cast', label: 'Emitir votos' },
+                { id: 'gov:records:certify', label: 'Certificar registros' },
+                { id: 'gov:licenses:issue', label: 'Emitir licencias' }
+            ]
+        },
+        carbon: {
+            icon: Zap,
+            label: 'Carbon Credits',
+            color: 'green',
+            permissions: [
+                { id: 'carbon:credits:issue', label: 'Emitir créditos' },
+                { id: 'carbon:credits:trade', label: 'Comerciar créditos' },
+                { id: 'carbon:offset:verify', label: 'Verificar offsets' },
+                { id: 'carbon:projects:certify', label: 'Certificar proyectos' },
+                { id: 'carbon:compliance:report', label: 'Reportar compliance' }
+            ]
+        }
+    };
+
+    // Generar token cuando la wallet se conecta
+    useEffect(() => {
+        if (isConnected && address) {
+            // Generar un token simple basado en la dirección de la wallet
+            // En producción, esto debería ser un JWT firmado por el backend
+            const token = `wallet_${address}_${Date.now()}`;
+            localStorage.setItem('token', token);
+            localStorage.setItem('wallet_address', address);
+        }
+    }, [isConnected, address]);
+
+    // Cargar API Keys
+    useEffect(() => {
+        fetchApiKeys();
+        if (isConnected && address) {
+            fetchUsageStats();
+        }
+    }, [isConnected, address]);
+
+    const fetchApiKeys = async () => {
+        try {
+            const token = localStorage.getItem('token');
+
+            if (!token || !isConnected) {
+                if (!isConnected) {
+                    toast.error('Conecta tu wallet para acceder al Developer Console');
+                }
+                setBackendAvailable(false);
+                setApiKeys([]);
+                setLoading(false);
+                return;
+            }
+
+            const response = await axios.get('/api/developer/keys', {
+                headers: { Authorization: `Bearer ${token}` },
+                timeout: 5000
+            });
+
+            setApiKeys(response.data.data || []);
+            setBackendAvailable(true);
+        } catch (error) {
+            // Manejo detallado de errores
+            if (error.code === 'ECONNABORTED') {
+                toast.error('Timeout: El backend tardó demasiado en responder');
+                setBackendAvailable(false);
+            } else if (error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
+                toast.error('Backend no disponible. Asegúrate de que el servidor esté corriendo en el puerto 5000');
+                setBackendAvailable(false);
+            } else if (error.response?.status === 500) {
+                toast.error('Error interno del servidor. Revisa los logs del backend.');
+                setBackendAvailable(true); // El servidor está arriba pero tiene un error
+            } else if (error.response?.status === 401 || error.response?.status === 403) {
+                toast.error('No autorizado. Verifica tu sesión e inicia sesión nuevamente.');
+                setBackendAvailable(true);
+            } else {
+                toast.error(error.response?.data?.error || 'Error desconocido al cargar API Keys');
+                setBackendAvailable(true);
+            }
+
+            setApiKeys([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchUsageStats = async () => {
+        try {
+            if (!address) return;
+
+            const response = await axios.get(`/api/developer/usage-stats/${address}`, {
+                timeout: 5000
+            });
+
+            if (response.data.success) {
+                setUsageStats(response.data.data);
+            }
+        } catch (error) {
+            console.error('Error fetching usage stats:', error);
+            // No mostramos toast aquí para no ser intrusivos
+        }
+    };
+
+    const handleCreateKey = async (formData) => {
+        try {
+            if (!isConnected || !address) {
+                toast.error('Conecta tu wallet para crear API Keys');
+                return;
+            }
+
+            const token = localStorage.getItem('token');
+
+            if (!token) {
+                toast.error('Token no encontrado. Recarga la página e intenta nuevamente.');
+                return;
+            }
+
+            const response = await axios.post('/api/developer/keys', formData, {
+                headers: { Authorization: `Bearer ${token}` },
+                timeout: 5000
+            });
+
+            setNewKeyData(response.data.data);
+            setShowKeyModal(true);
+            setShowCreateModal(false);
+            fetchApiKeys();
+            toast.success('API Key creada exitosamente');
+        } catch (error) {
+            if (error.code === 'ERR_NETWORK') {
+                toast.error('No se puede conectar al backend. Verifica que esté corriendo.');
+            } else if (error.response?.status === 401 || error.response?.status === 403) {
+                toast.error('No autorizado. Por favor inicia sesión nuevamente.');
+            } else if (error.response?.status === 400) {
+                toast.error(error.response?.data?.error || 'Datos de entrada inválidos');
+            } else {
+                toast.error(error.response?.data?.error || 'Error al crear API Key');
+            }
+        }
+    };
+
+    const handleDeleteKey = async (keyId) => {
+        if (!confirm('¿Estás seguro? Esta acción no se puede deshacer.')) return;
+
+        try {
+            const token = localStorage.getItem('token');
+            await axios.delete(`/api/developer/keys/${keyId}`, {
+                headers: { Authorization: `Bearer ${token}` },
+                timeout: 5000
+            });
+            toast.success('API Key revocada');
+            fetchApiKeys();
+        } catch (error) {
+            console.error('❌ Error deleting API Key:', error);
+            toast.error(error.response?.data?.error || 'Error al revocar API Key');
+        }
+    };
+
+    const handleRotateKey = async (keyId) => {
+        if (!window.confirm('¿Rotar esta clave? La anterior dejará de funcionar.')) return;
+
+        try {
+            const token = localStorage.getItem('token');
+            // Optimización: Usar URL constante si existiera, pero mantenemos path relativo por API proxy
+            const response = await axios.post(`/api/developer/keys/${keyId}/rotate`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setNewKeyData(response.data.data);
+            setShowKeyModal(true);
+            fetchApiKeys();
+            toast.success('Clave rotada exitosamente');
+        } catch (error) {
+            console.error(error);
+            toast.error(error.response?.data?.error || 'Error al rotar clave');
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-600"></div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+            <div className="max-w-7xl mx-auto">
+                {/* Header */}
+                <div className="mb-8">
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                        <div className="flex-1">
+                            <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+                                <Key className="w-8 h-8 text-purple-600" />
+                                Developer Console
+                            </h1>
+                            <p className="text-gray-600 dark:text-gray-400 mt-2">
+                                API REST, SDK, Smart Contracts (Polygon Mainnet), 13+ verticales empresariales,
+                                pagos híbridos (Stripe + Crypto), NFTs, DAO, Staking, Real Estate y más.
+                            </p>
+                            {!backendAvailable && (
+                                <div className="mt-3 px-4 py-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg flex items-center gap-2 text-yellow-800 dark:text-yellow-200">
+                                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                                    <span className="text-sm">
+                                        Backend no disponible. Ejecuta: <code className="px-2 py-1 bg-yellow-100 dark:bg-yellow-800 rounded font-mono text-xs">cd backend && pnpm start</code>
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-3">
+                            {/* Wallet Status */}
+                            {isConnected && address ? (
+                                <div className="px-4 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg flex items-center gap-2">
+                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                    <span className="text-sm text-green-800 dark:text-green-300 font-mono">
+                                        {address.slice(0, 6)}...{address.slice(-4)}
+                                    </span>
+                                </div>
+                            ) : (
+                                <div className="px-4 py-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg flex items-center gap-2">
+                                    <AlertCircle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                                    <span className="text-sm text-yellow-800 dark:text-yellow-300">
+                                        Wallet no conectada
+                                    </span>
+                                </div>
+                            )}
+                            <button
+                                onClick={() => setShowCreateModal(true)}
+                                disabled={!backendAvailable || !isConnected}
+                                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold hover:shadow-xl hover:scale-105 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                                title={!isConnected ? 'Conecta tu wallet primero' : backendAvailable ? 'Crear una nueva API Key para tu aplicación' : 'Backend no disponible'}
+                            >
+                                <Plus className="w-5 h-5" />
+                                Nueva API Key
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Navigation Tabs */}
+                <div className="mb-8 border-b border-gray-200 dark:border-gray-700">
+                    <div className="flex gap-1 overflow-x-auto">
+                        {[
+                            { id: 'keys', label: 'API Keys', icon: Key },
+                            { id: 'toolbez', label: 'ToolBEZ™ Enterprise', icon: Zap },
+                            { id: 'docs', label: 'Documentation', icon: Book },
+                            { id: 'loyalty', label: 'Loyalty Metrics', icon: Trophy },
+                            { id: 'sdk', label: 'SDK & Snippets', icon: Code },
+                            { id: 'webhooks', label: 'Webhooks', icon: Webhook },
+                            { id: 'embed', label: 'Embed Widgets', icon: FileCode }
+                        ].map(tab => {
+                            const Icon = tab.icon;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`flex items-center gap-2 px-6 py-3 font-medium border-b-2 transition-all whitespace-nowrap ${activeTab === tab.id
+                                        ? 'border-purple-600 text-purple-600 dark:text-purple-400'
+                                        : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                                        }`}
+                                >
+                                    <Icon className="w-5 h-5" />
+                                    {tab.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Tab Content */}
+                {activeTab === 'keys' && (
+                    <div>
+                        {/* Stats Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                            <StatCard
+                                icon={Key}
+                                label="API Keys Activas"
+                                value={apiKeys.filter(k => k.status === 'active').length}
+                                color="purple"
+                            />
+                            <StatCard
+                                icon={Activity}
+                                label="Total Requests Hoy"
+                                value={apiKeys.reduce((sum, k) => sum + (k.usage?.requestsToday || 0), 0).toLocaleString()}
+                                color="blue"
+                            />
+                            <StatCard
+                                icon={BarChart3}
+                                label="Requests Este Mes"
+                                value={apiKeys.reduce((sum, k) => sum + (k.usage?.requestsThisMonth || 0), 0).toLocaleString()}
+                                color="green"
+                            />
+                            <StatCard
+                                icon={Shield}
+                                label="Última Actividad"
+                                value={apiKeys.length > 0 ? 'Ahora' : 'Nunca'}
+                                color="orange"
+                            />
+                        </div>
+
+                        {/* API Keys List */}
+                        {apiKeys.length === 0 ? (
+                            <EmptyState onCreateClick={() => setShowCreateModal(true)} />
+                        ) : (
+                            <div className="space-y-4">
+                                {apiKeys.map((apiKey) => (
+                                    <ApiKeyCard
+                                        key={apiKey._id}
+                                        apiKey={apiKey}
+                                        onDelete={handleDeleteKey}
+                                        onRotate={handleRotateKey}
+                                        onViewDetails={setSelectedKey}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {activeTab === 'sdk' && <SDKSnippetsTab apiKeys={apiKeys} onCreateKey={() => setShowCreateModal(true)} />}
+                {activeTab === 'toolbez' && <ToolBezTab selectedApiKey={apiKeys.find(k => k.status === 'active')?._id} />}
+                {activeTab === 'webhooks' && <WebhooksTab apiKeys={apiKeys} />}
+                {activeTab === 'embed' && <EmbedWidgetsTab />}
+
+                {/* New Documentation Tab */}
+                {activeTab === 'docs' && (
+                    <DocumentationTab apiKeys={apiKeys} address={address} />
+                )}
+
+                {/* New Loyalty Metrics Tab */}
+                {activeTab === 'loyalty' && (
+                    <LoyaltyMetricsTab usageStats={usageStats} />
+                )}
+
+                {/* Modals */}
+                {showCreateModal && (
+                    <CreateKeyModal
+                        onClose={() => setShowCreateModal(false)}
+                        onCreate={handleCreateKey}
+                        permissionModules={permissionModules}
+                    />
+                )}
+
+                {showKeyModal && newKeyData && (
+                    <KeyRevealModal
+                        keyData={newKeyData}
+                        onClose={() => {
+                            setShowKeyModal(false);
+                            setNewKeyData(null);
+                        }}
+                    />
+                )}
+
+                {selectedKey && (
+                    <KeyDetailsModal
+                        apiKey={selectedKey}
+                        onClose={() => setSelectedKey(null)}
+                        permissionModules={permissionModules}
+                    />
+                )}
+            </div>
+        </div>
+    );
+};
+
+// Componente de Tarjeta de Estadística
+const StatCard = ({ icon: Icon, label, value, color }) => {
+    const colors = {
+        purple: 'from-purple-500 to-purple-600',
+        blue: 'from-blue-500 to-blue-600',
+        green: 'from-green-500 to-green-600',
+        orange: 'from-orange-500 to-orange-600'
+    };
+
+    return (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center gap-4">
+                <div className={`p-3 bg-gradient-to-br ${colors[color]} rounded-xl`}>
+                    <Icon className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{label}</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Componente CodeBlock para mostrar código con funcionalidad de copiar
+const CodeBlock = ({ title, code, language = 'javascript' }) => {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(code);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+        toast.success('Código copiado al portapapeles');
+    };
+
+    return (
+        <div className="mb-6 rounded-lg overflow-hidden border border-gray-700 bg-gray-900">
+            <div className="bg-gray-800 px-4 py-2 flex justify-between items-center border-b border-gray-700">
+                <span className="text-sm font-mono text-blue-400">{title}</span>
+                <button
+                    onClick={handleCopy}
+                    className="text-xs hover:text-white flex items-center gap-1 text-gray-400 transition-colors"
+                >
+                    {copied ? <Check size={12} /> : <Copy size={12} />}
+                    {copied ? 'Copiado!' : 'Copiar'}
+                </button>
+            </div>
+            <pre className="p-4 overflow-x-auto text-sm font-mono">
+                <code className="text-gray-100">{code}</code>
+            </pre>
+        </div>
+    );
+};
+
+// Componente DeveloperIncentives para mostrar progreso de gamificación
+const DeveloperIncentives = ({ usageStats }) => {
+    const apiProgress = usageStats?.requestsThisMonth
+        ? (usageStats.requestsThisMonth / 500000) * 100
+        : 0;
+
+    const contractProgress = usageStats?.smartContractCalls
+        ? (usageStats.smartContractCalls / 1000) * 100
+        : 0;
+
+    const identityProgress = usageStats?.identityValidations
+        ? (usageStats.identityValidations / 100) * 100
+        : 0;
+
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            {/* CARD 1: SPEED DEMON */}
+            <div className="bg-gradient-to-br from-gray-900 to-gray-800 border border-yellow-500/20 rounded-2xl p-6 shadow-xl">
+                <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                        <Zap className="text-yellow-500" size={20} />
+                        Speed Demon
+                    </h3>
+                    <span className="px-3 py-1 bg-yellow-500/20 text-yellow-500 border border-yellow-500/30 rounded-full text-xs font-bold">
+                        Silver Tier
+                    </span>
+                </div>
+                <p className="text-sm text-gray-400 mb-4">
+                    Supera las 500k llamadas al mes. Te devolvemos el 5% en BEZ-Coins.
+                </p>
+                <div className="space-y-2">
+                    <div className="flex justify-between text-xs">
+                        <span className="text-gray-400">Progreso Actual</span>
+                        <span className="text-white font-mono">
+                            {usageStats?.requestsThisMonth?.toLocaleString() || 0} / 500k
+                        </span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+                        <div
+                            className="bg-yellow-500 h-full transition-all duration-500"
+                            style={{ width: `${Math.min(apiProgress, 100)}%` }}
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* CARD 2: CONTRACT ARCHITECT */}
+            <div className="bg-gradient-to-br from-gray-900 to-gray-800 border border-blue-500/20 rounded-2xl p-6 shadow-xl">
+                <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                        <Target className="text-blue-500" size={20} />
+                        Contract Architect
+                    </h3>
+                    <span className="px-3 py-1 bg-blue-500/20 text-blue-500 border border-blue-500/30 rounded-full text-xs font-bold">
+                        Gold Tier
+                    </span>
+                </div>
+                <p className="text-sm text-gray-400 mb-4">
+                    Valida 1,000 contratos on-chain para desbloquear AI Scrapers gratuitos.
+                </p>
+                <div className="space-y-2">
+                    <div className="flex justify-between text-xs">
+                        <span className="text-gray-400">Contratos Validados</span>
+                        <span className="text-white font-mono">
+                            {usageStats?.smartContractCalls || 0} / 1000
+                        </span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+                        <div
+                            className="bg-blue-500 h-full transition-all duration-500"
+                            style={{ width: `${Math.min(contractProgress, 100)}%` }}
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* CARD 3: IDENTITY PIONEER */}
+            <div className="bg-gradient-to-br from-gray-900 to-gray-800 border border-purple-500/20 rounded-2xl p-6 shadow-xl">
+                <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                        <Trophy className="text-purple-500" size={20} />
+                        Identity Pioneer
+                    </h3>
+                    <span className="px-3 py-1 bg-purple-500/20 text-purple-500 border border-purple-500/30 rounded-full text-xs font-bold">
+                        Platinum
+                    </span>
+                </div>
+                <p className="text-sm text-gray-400 mb-4">
+                    Integra el módulo de Identidad y obtén un nodo dedicado.
+                </p>
+                <div className="space-y-2">
+                    <div className="flex justify-between text-xs">
+                        <span className="text-gray-400">Verificaciones</span>
+                        <span className="text-white font-mono">
+                            {usageStats?.identityValidations || 0} / 100
+                        </span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+                        <div
+                            className="bg-purple-500 h-full transition-all duration-500"
+                            style={{ width: `${Math.min(identityProgress, 100)}%` }}
+                        />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Componente de Estado Vacío
+const EmptyState = ({ onCreateClick }) => (
+    <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-2xl p-12 text-center border-2 border-dashed border-purple-300 dark:border-purple-700">
+        <div className="relative inline-block mb-6">
+            <Key className="w-20 h-20 text-purple-600 dark:text-purple-400 animate-bounce" />
+            <div className="absolute -top-2 -right-2 w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center animate-pulse">
+                <Plus className="w-5 h-5 text-gray-900" />
+            </div>
+        </div>
+        <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+            ¡Comienza tu integración!
+        </h3>
+        <p className="text-gray-600 dark:text-gray-400 mb-2 max-w-md mx-auto">
+            Crea tu primera API Key para acceder a todos los servicios de BeZhas
+        </p>
+        <p className="text-sm text-purple-600 dark:text-purple-400 mb-8">
+            🚀 Marketplace • Logística • IA • Blockchain • Real Estate • ¡y más!
+        </p>
+        <button
+            onClick={onCreateClick}
+            className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold text-lg hover:shadow-2xl hover:scale-105 transition-all shadow-lg inline-flex items-center gap-2"
+        >
+            <Plus className="w-6 h-6" />
+            Crear Mi Primera API Key
+        </button>
+        <p className="text-xs text-gray-500 dark:text-gray-500 mt-6">
+            ✓ Gratis para desarrollo • ✓ Documentación completa • ✓ Soporte 24/7
+        </p>
+    </div>
+);
+
+// Componente de Tarjeta de API Key
+const ApiKeyCard = ({ apiKey, onDelete, onRotate, onViewDetails }) => {
+    const [copied, setCopied] = useState(false);
+
+    const copyKey = () => {
+        navigator.clipboard.writeText(apiKey.keyPreview);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    const statusColors = {
+        active: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+        suspended: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+        revoked: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+    };
+
+    return (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-700 transition-colors">
+            <div className="flex items-start justify-between">
+                <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-3">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                            {apiKey.name}
+                        </h3>
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[apiKey.status]}`}>
+                            {apiKey.status}
+                        </span>
+                        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                            {apiKey.environment}
+                        </span>
+                    </div>
+
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                        {apiKey.description || 'Sin descripción'}
+                    </p>
+
+                    <div className="flex items-center gap-4 mb-4">
+                        <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-900 rounded-lg font-mono text-sm">
+                            <code className="text-gray-700 dark:text-gray-300">{apiKey.keyPreview}</code>
+                            <button onClick={copyKey} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                                {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-gray-500 dark:text-gray-400">Permisos:</span>
+                        {apiKey.permissions.slice(0, 3).map((perm) => (
+                            <span key={perm} className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded text-xs font-medium">
+                                {perm}
+                            </span>
+                        ))}
+                        {apiKey.permissions.length > 3 && (
+                            <span className="text-xs text-gray-500">+{apiKey.permissions.length - 3} más</span>
+                        )}
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-2 ml-4">
+                    <button
+                        onClick={() => onViewDetails(apiKey)}
+                        className="p-2 text-gray-600 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400 transition-colors"
+                        title="Ver detalles"
+                    >
+                        <Settings className="w-5 h-5" />
+                    </button>
+                    <button
+                        onClick={() => onRotate(apiKey._id)}
+                        className="p-2 text-gray-600 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
+                        title="Rotar clave"
+                    >
+                        <RefreshCw className="w-5 h-5" />
+                    </button>
+                    <button
+                        onClick={() => onDelete(apiKey._id)}
+                        className="p-2 text-gray-600 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
+                        title="Revocar"
+                    >
+                        <Trash2 className="w-5 h-5" />
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Modal de Creación de API Key
+const CreateKeyModal = ({ onClose, onCreate, permissionModules }) => {
+    const [formData, setFormData] = useState({
+        name: '',
+        description: '',
+        sector: 'ecommerce',
+        environment: 'development',
+        permissions: []
+    });
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!formData.name) {
+            toast.error('El nombre es requerido');
+            return;
+        }
+        onCreate(formData);
+    };
+
+    const togglePermission = (permission) => {
+        setFormData(prev => ({
+            ...prev,
+            permissions: prev.permissions.includes(permission)
+                ? prev.permissions.filter(p => p !== permission)
+                : [...prev.permissions, permission]
+        }));
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                        Crear Nueva API Key
+                    </h2>
+                </div>
+
+                <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                    {/* Información Básica */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Nombre de la Aplicación *
+                        </label>
+                        <input
+                            type="text"
+                            value={formData.name}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 dark:text-white"
+                            placeholder="Mi Aplicación E-commerce"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Descripción
+                        </label>
+                        <textarea
+                            value={formData.description}
+                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                            className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 dark:text-white"
+                            rows="3"
+                            placeholder="Descripción de tu integración..."
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Sector
+                            </label>
+                            <select
+                                value={formData.sector}
+                                onChange={(e) => setFormData({ ...formData, sector: e.target.value })}
+                                className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 dark:text-white"
+                            >
+                                <option value="ecommerce">E-commerce</option>
+                                <option value="logistics">Logística</option>
+                                <option value="services">Servicios</option>
+                                <option value="realestate">Bienes Raíces</option>
+                                <option value="finance">Finanzas</option>
+                                <option value="other">Otro</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Entorno
+                            </label>
+                            <select
+                                value={formData.environment}
+                                onChange={(e) => setFormData({ ...formData, environment: e.target.value })}
+                                className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 dark:text-white"
+                            >
+                                <option value="development">Development</option>
+                                <option value="production">Production</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Selector de Permisos */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+                            Selecciona los Permisos (Módulos)
+                        </label>
+                        <div className="space-y-4">
+                            {Object.entries(permissionModules).map(([moduleKey, module]) => {
+                                const Icon = module.icon;
+                                return (
+                                    <div key={moduleKey} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                                        <div className="flex items-center gap-3 mb-3">
+                                            <Icon className="w-5 h-5 text-purple-600" />
+                                            <h4 className="font-semibold text-gray-900 dark:text-white">
+                                                {module.label}
+                                            </h4>
+                                        </div>
+                                        <div className="space-y-2 ml-8">
+                                            {module.permissions.map((perm) => (
+                                                <label key={perm.id} className="flex items-center gap-2 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={formData.permissions.includes(perm.id)}
+                                                        onChange={() => togglePermission(perm.id)}
+                                                        className="rounded text-purple-600 focus:ring-purple-500"
+                                                    />
+                                                    <span className="text-sm text-gray-700 dark:text-gray-300">{perm.label}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Botones */}
+                    <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="px-6 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            type="submit"
+                            className="px-6 py-2 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors"
+                        >
+                            Crear API Key
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+// Modal de Revelación de Clave (Solo se muestra una vez)
+const KeyRevealModal = ({ keyData, onClose }) => {
+    const [copied, setCopied] = useState(false);
+
+    const copyKey = () => {
+        navigator.clipboard.writeText(keyData.key);
+        setCopied(true);
+        toast.success('Clave copiada al portapapeles');
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full p-8">
+                <div className="text-center mb-6">
+                    <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Check className="w-8 h-8 text-green-600 dark:text-green-400" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                        ¡API Key Creada Exitosamente!
+                    </h2>
+                    <p className="text-gray-600 dark:text-gray-400">
+                        Guarda esta clave en un lugar seguro. No podrás verla nuevamente.
+                    </p>
+                </div>
+
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-6">
+                    <div className="flex gap-3">
+                        <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+                        <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                            <strong>Importante:</strong> Por seguridad, esta clave solo se muestra una vez.
+                            Cópiala ahora y guárdala en tu gestor de contraseñas.
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-gray-900 dark:bg-black rounded-lg p-4 mb-6">
+                    <div className="flex items-center justify-between">
+                        <code className="text-green-400 font-mono text-sm break-all">
+                            {keyData.key}
+                        </code>
+                        <button
+                            onClick={copyKey}
+                            className="ml-4 p-2 hover:bg-gray-800 rounded transition-colors flex-shrink-0"
+                        >
+                            {copied ? (
+                                <Check className="w-5 h-5 text-green-400" />
+                            ) : (
+                                <Copy className="w-5 h-5 text-gray-400" />
+                            )}
+                        </button>
+                    </div>
+                </div>
+
+                <button
+                    onClick={onClose}
+                    className="w-full px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors"
+                >
+                    Entendido, he guardado la clave
+                </button>
+            </div>
+        </div>
+    );
+};
+
+// Modal de Detalles de API Key
+const KeyDetailsModal = ({ apiKey, onClose, permissionModules }) => {
+    return (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                            {apiKey.name}
+                        </h2>
+                        <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                            ✕
+                        </button>
+                    </div>
+                </div>
+
+                <div className="p-6 space-y-6">
+                    {/* Información General */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Sector</p>
+                            <p className="text-gray-900 dark:text-white font-semibold capitalize">{apiKey.sector}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Entorno</p>
+                            <p className="text-gray-900 dark:text-white font-semibold capitalize">{apiKey.environment}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Creada</p>
+                            <p className="text-gray-900 dark:text-white font-semibold">
+                                {new Date(apiKey.createdAt).toLocaleDateString()}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Último Uso</p>
+                            <p className="text-gray-900 dark:text-white font-semibold">
+                                {apiKey.usage?.lastUsed ? new Date(apiKey.usage.lastUsed).toLocaleDateString() : 'Nunca'}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Métricas de Uso */}
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Métricas de Uso</h3>
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 text-center">
+                                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                                    {apiKey.usage?.requestsToday || 0}
+                                </p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">Hoy</p>
+                            </div>
+                            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 text-center">
+                                <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                                    {apiKey.usage?.requestsThisMonth || 0}
+                                </p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">Este Mes</p>
+                            </div>
+                            <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 text-center">
+                                <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                                    {apiKey.usage?.totalRequests || 0}
+                                </p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">Total</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Permisos Activos */}
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
+                            Permisos Activos ({apiKey.permissions.length})
+                        </h3>
+                        <div className="flex flex-wrap gap-2">
+                            {apiKey.permissions.map((perm) => (
+                                <span
+                                    key={perm}
+                                    className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg text-sm font-medium"
+                                >
+                                    {perm}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Rate Limits */}
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Rate Limits</h3>
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                                <span className="text-gray-700 dark:text-gray-300">Requests por minuto</span>
+                                <span className="font-semibold text-gray-900 dark:text-white">
+                                    {apiKey.rateLimit?.requestsPerMinute || 60}
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                                <span className="text-gray-700 dark:text-gray-300">Requests por día</span>
+                                <span className="font-semibold text-gray-900 dark:text-white">
+                                    {apiKey.rateLimit?.requestsPerDay || 10000}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-6 border-t border-gray-200 dark:border-gray-700">
+                    <button
+                        onClick={onClose}
+                        className="w-full px-6 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg font-semibold hover:opacity-90 transition-opacity"
+                    >
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ==============================
+// NEW TABS COMPONENTS
+// ==============================
+
+// Tab 1: SDK & Code Snippets
+const SDKSnippetsTab = ({ apiKeys, onCreateKey }) => {
+    const [selectedLanguage, setSelectedLanguage] = useState('javascript');
+    const [selectedApiKey, setSelectedApiKey] = useState(apiKeys[0]?._id || 'YOUR_API_KEY');
+    const [copied, setCopied] = useState(false);
+
+    const codeSnippets = {
+        javascript: `// BeZhas SDK - JavaScript/Node.js
+            import {BeZhasSDK} from '@bezhas/sdk';
+
+            const bezhas = new BeZhasSDK({
+                apiKey: '${selectedApiKey}',
+            environment: 'production'
+});
+
+            // Ejemplo: Crear envío logístico
+            const shipment = await bezhas.logistics.create({
+                origin: 'CDMX',
+            destination: 'GDL',
+            cargo: 'Electronics',
+            value: 50000
+});
+
+            console.log('Shipment ID:', shipment.id);`,
+        python: `# BeZhas SDK - Python
+            from bezhas_sdk import BeZhasClient
+
+            bezhas = BeZhasClient(api_key='${selectedApiKey}')
+
+            # Ejemplo: Tokenizar propiedad
+            property = bezhas.real_estate.tokenize(
+            address="5th Avenue, NYC",
+            valuation=5000000,
+            fractions=10000
+            )
+
+            print(f"Property Token: {property.token_id}")`,
+        php: `<?php
+            // BeZhas SDK - PHP
+            require 'vendor/autoload.php';
+            use Bezhas\\SDK\\Client;
+
+$bezhas = new Client(['api_key' => '${selectedApiKey}']);
+
+// Ejemplo: Crear smart contract
+$contract = $bezhas->contracts->deploy([
+    'type' => 'escrow',
+    'amount' => 10000,
+    'parties' => ['buyer', 'seller']
+            ]);
+
+echo "Contract Address: " . $contract->address;`,
+        ruby: `# BeZhas SDK - Ruby
+            require 'bezhas'
+
+            bezhas = Bezhas::Client.new(api_key: '${selectedApiKey}')
+
+            # Ejemplo: Verificar KYC
+            kyc = bezhas.identity.verify(
+            user_id: 'user_12345',
+            document: 'passport'
+            )
+
+            puts "KYC Status: #{kyc.status}"`,
+        curl: `# BeZhas API - cURL
+            curl -X POST https://api.bezhas.com/v1/logistics/shipments \\
+            -H "Authorization: Bearer ${selectedApiKey}" \\
+            -H "Content-Type: application/json" \\
+            -d '{
+                "origin": "CDMX",
+            "destination": "GDL",
+            "cargo": "Electronics",
+            "value": 50000
+  }'`
+    };
+
+    const copyCode = () => {
+        navigator.clipboard.writeText(codeSnippets[selectedLanguage]);
+        setCopied(true);
+        toast.success('Código copiado');
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                    SDK & Code Snippets
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                    Integra BeZhas en tu aplicación con nuestros SDKs oficiales en múltiples lenguajes
+                </p>
+
+                {/* API Key Selector */}
+                <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-lg border border-purple-200 dark:border-purple-700">
+                    <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                        <Key className="w-4 h-4 text-purple-600" />
+                        Selecciona tu API Key
+                    </label>
+                    {apiKeys.length > 0 ? (
+                        <select
+                            value={selectedApiKey}
+                            onChange={(e) => setSelectedApiKey(e.target.value)}
+                            className="w-full px-4 py-3 bg-white dark:bg-gray-900 border-2 border-purple-300 dark:border-purple-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-mono text-sm transition-all"
+                        >
+                            {apiKeys.map(key => (
+                                <option key={key._id} value={key._id}>
+                                    {key.name} ({key.environment}) - {key.keyPreview}
+                                </option>
+                            ))}
+                        </select>
+                    ) : (
+                        <div className="text-center py-4">
+                            <p className="text-gray-600 dark:text-gray-400 mb-3">No tienes API Keys creadas</p>
+                            <button
+                                onClick={onCreateKey}
+                                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                            >
+                                Crear API Key
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                {/* Language Selector */}
+                <div className="flex gap-2 mb-4 flex-wrap">
+                    {['javascript', 'python', 'php', 'ruby', 'curl'].map(lang => (
+                        <button
+                            key={lang}
+                            onClick={() => setSelectedLanguage(lang)}
+                            className={`px-4 py-2 rounded-lg font-medium transition-all capitalize ${selectedLanguage === lang
+                                ? 'bg-purple-600 text-white'
+                                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                }`}
+                        >
+                            {lang}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Code Block */}
+                <div className="relative">
+                    <pre className="bg-gray-900 text-green-400 p-6 rounded-lg overflow-x-auto">
+                        <code>{codeSnippets[selectedLanguage]}</code>
+                    </pre>
+                    <button
+                        onClick={copyCode}
+                        className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+                    >
+                        {copied ? <Check className="w-5 h-5 text-green-400" /> : <Copy className="w-5 h-5 text-gray-400" />}
+                    </button>
+                </div>
+
+                {/* Installation Instructions */}
+                <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <h3 className="font-bold text-blue-900 dark:text-blue-300 mb-2 flex items-center gap-2">
+                        <Zap className="w-4 h-4" />
+                        Instalación
+                    </h3>
+                    <code className="text-sm text-blue-800 dark:text-blue-400 font-mono">
+                        {selectedLanguage === 'javascript' && 'pnpm add @bezhas/sdk'}
+                        {selectedLanguage === 'python' && 'pip install bezhas-sdk'}
+                        {selectedLanguage === 'php' && 'composer require bezhas/sdk'}
+                        {selectedLanguage === 'ruby' && 'gem install bezhas'}
+                        {selectedLanguage === 'curl' && 'No requiere instalación - usa directamente en terminal'}
+                    </code>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Tab 2: Webhooks
+const WebhooksTab = ({ apiKeys }) => {
+    const [webhooks, setWebhooks] = useState([]);
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [selectedApiKey, setSelectedApiKey] = useState(apiKeys[0]?._id || '');
+    const [loading, setLoading] = useState(false);
+
+    // Cargar webhooks cuando se selecciona una API Key
+    useEffect(() => {
+        if (selectedApiKey) {
+            fetchWebhooks();
+        }
+    }, [selectedApiKey]);
+
+    const fetchWebhooks = async () => {
+        if (!selectedApiKey) return;
+
+        try {
+            setLoading(true);
+            const token = localStorage.getItem('token');
+            const response = await axios.get(`/api/developer/keys/${selectedApiKey}/webhooks`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setWebhooks(response.data.data || []);
+        } catch (error) {
+            console.error('Error al cargar webhooks:', error);
+            if (error.response?.status !== 404) {
+                toast.error('Error al cargar webhooks');
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleAddWebhook = async (webhookData) => {
+        if (!selectedApiKey) {
+            toast.error('Selecciona una API Key primero');
+            return;
+        }
+
+        try {
+            const token = localStorage.getItem('token');
+            await axios.post(`/api/developer/keys/${selectedApiKey}/webhooks`, webhookData, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            toast.success('Webhook agregado exitosamente');
+            setShowAddModal(false);
+            fetchWebhooks();
+        } catch (error) {
+            console.error('Error al agregar webhook:', error);
+            toast.error(error.response?.data?.error || 'Error al agregar webhook');
+        }
+    };
+
+    const handleDeleteWebhook = async (webhookId) => {
+        if (!window.confirm('¿Eliminar este webhook?')) return;
+
+        try {
+            const token = localStorage.getItem('token');
+            await axios.delete(`/api/developer/keys/${selectedApiKey}/webhooks/${webhookId}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            toast.success('Webhook eliminado');
+            fetchWebhooks();
+        } catch (error) {
+            console.error('Error al eliminar webhook:', error);
+            toast.error('Error al eliminar webhook');
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Webhooks</h2>
+                        <p className="text-gray-600 dark:text-gray-400 mt-1">
+                            Recibe notificaciones en tiempo real de eventos en tu aplicación
+                        </p>
+                    </div>
+                    <button
+                        onClick={() => setShowAddModal(true)}
+                        disabled={!selectedApiKey}
+                        className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-xl hover:scale-105 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                        title={selectedApiKey ? 'Agregar un nuevo webhook a tu API Key' : 'Selecciona una API Key primero'}
+                    >
+                        <Plus className="w-5 h-5" />
+                        Añadir Webhook
+                    </button>
+                </div>
+
+                {/* API Key Selector */}
+                {apiKeys.length > 0 && (
+                    <div className="mb-6">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Selecciona tu API Key
+                        </label>
+                        <select
+                            value={selectedApiKey}
+                            onChange={(e) => setSelectedApiKey(e.target.value)}
+                            className="w-full px-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500"
+                        >
+                            {apiKeys.map(key => (
+                                <option key={key._id} value={key._id}>{key.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+
+                {loading ? (
+                    <div className="text-center py-12">
+                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-600 mx-auto"></div>
+                    </div>
+                ) : webhooks.length === 0 ? (
+                    <div className="text-center py-12">
+                        <Webhook className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                        <p className="text-gray-600 dark:text-gray-400">No tienes webhooks configurados</p>
+                        <button
+                            onClick={() => setShowAddModal(true)}
+                            disabled={!selectedApiKey}
+                            className="mt-4 text-purple-600 hover:text-purple-700 font-medium disabled:opacity-50"
+                        >
+                            Crear tu primer webhook
+                        </button>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        {webhooks.map(webhook => (
+                            <div key={webhook._id || webhook.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                        <h3 className="font-bold text-gray-900 dark:text-white">{webhook.url}</h3>
+                                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                            Eventos: {webhook.events.join(', ')}
+                                        </p>
+                                        {webhook.secret && (
+                                            <p className="text-xs text-gray-500 dark:text-gray-500 mt-2 font-mono">
+                                                Secret: {webhook.secret.substring(0, 20)}...
+                                            </p>
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={() => handleDeleteWebhook(webhook._id || webhook.id)}
+                                        className="text-red-600 hover:text-red-700 ml-4"
+                                    >
+                                        <Trash2 className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* Events Documentation */}
+                <div className="mt-8 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                    <h3 className="font-bold text-gray-900 dark:text-white mb-3">Eventos Disponibles</h3>
+                    <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                        <li>• <code className="text-purple-600">shipment.created</code> - Nuevo envío creado</li>
+                        <li>• <code className="text-purple-600">shipment.updated</code> - Estado de envío actualizado</li>
+                        <li>• <code className="text-purple-600">payment.completed</code> - Pago completado</li>
+                        <li>• <code className="text-purple-600">escrow.released</code> - Fondos de escrow liberados</li>
+                        <li>• <code className="text-purple-600">kyc.verified</code> - KYC verificado</li>
+                        <li>• <code className="text-purple-600">property.tokenized</code> - Propiedad tokenizada</li>
+                    </ul>
+                </div>
+            </div>
+
+            {/* Modal para agregar webhook */}
+            {showAddModal && (
+                <AddWebhookModal
+                    onClose={() => setShowAddModal(false)}
+                    onAdd={handleAddWebhook}
+                />
+            )}
+        </div>
+    );
+};
+
+// Tab 3: Embed Widgets
+const EmbedWidgetsTab = () => {
+    const [widgetType, setWidgetType] = useState('tracking');
+    const [copied, setCopied] = useState(false);
+
+    const embedCodes = {
+        tracking: `<!-- BeZhas Tracking Widget -->
+            <div id="bezhas-tracking"></div>
+            <script src="https://cdn.bezhas.com/widgets/tracking.js"></script>
+            <script>
+                BeZhasTracking.init({
+                    containerId: 'bezhas-tracking',
+                apiKey: 'YOUR_API_KEY',
+                shipmentId: 'SHIP_12345'
+  });
+            </script>`,
+        marketplace: `<!-- BeZhas Marketplace Widget -->
+            <div id="bezhas-marketplace"></div>
+            <script src="https://cdn.bezhas.com/widgets/marketplace.js"></script>
+            <script>
+                BeZhasMarketplace.init({
+                    containerId: 'bezhas-marketplace',
+                apiKey: 'YOUR_API_KEY',
+                category: 'all'
+  });
+            </script>`,
+        wallet: `<!-- BeZhas Wallet Connect Button -->
+            <div id="bezhas-wallet-btn"></div>
+            <script src="https://cdn.bezhas.com/widgets/wallet.js"></script>
+            <script>
+                BeZhasWallet.init({
+                    containerId: 'bezhas-wallet-btn',
+                apiKey: 'YOUR_API_KEY',
+                network: 'polygon-amoy'
+  });
+            </script>`
+    };
+
+    const copyEmbed = () => {
+        navigator.clipboard.writeText(embedCodes[widgetType]);
+        setCopied(true);
+        toast.success('Código copiado');
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                    Embed Widgets
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                    Incrusta funcionalidades de BeZhas directamente en tu sitio web
+                </p>
+
+                {/* Widget Selector */}
+                <div className="flex gap-2 mb-6 flex-wrap">
+                    {[
+                        { id: 'tracking', label: 'Tracking Logístico' },
+                        { id: 'marketplace', label: 'Marketplace' },
+                        { id: 'wallet', label: 'Wallet Connect' }
+                    ].map(widget => (
+                        <button
+                            key={widget.id}
+                            onClick={() => setWidgetType(widget.id)}
+                            className={`px-4 py-2 rounded-lg font-medium transition-all ${widgetType === widget.id
+                                ? 'bg-purple-600 text-white'
+                                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                }`}
+                        >
+                            {widget.label}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Embed Code */}
+                <div className="relative">
+                    <pre className="bg-gray-900 text-green-400 p-6 rounded-lg overflow-x-auto">
+                        <code>{embedCodes[widgetType]}</code>
+                    </pre>
+                    <button
+                        onClick={copyEmbed}
+                        className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+                    >
+                        {copied ? <Check className="w-5 h-5 text-green-400" /> : <Copy className="w-5 h-5 text-gray-400" />}
+                    </button>
+                </div>
+
+                {/* Widget Preview */}
+                <div className="mt-6 p-6 bg-gray-50 dark:bg-gray-900 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
+                    <p className="text-center text-gray-500 dark:text-gray-400 mb-4">Vista Previa del Widget</p>
+                    <div className="bg-white dark:bg-gray-800 p-4 rounded-lg">
+                        <p className="text-gray-600 dark:text-gray-400 text-sm">
+                            El widget aparecerá aquí cuando lo implementes en tu sitio
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Tab 4: API Documentation
+const APIDocsTab = () => {
+    const [selectedEndpoint, setSelectedEndpoint] = useState('logistics');
+
+    const endpoints = {
+        logistics: {
+            title: 'Logistics API',
+            description: 'Gestión de envíos y tracking',
+            methods: [
+                {
+                    method: 'POST',
+                    path: '/v1/logistics/shipments',
+                    description: 'Crear nuevo envío',
+                    params: ['origin', 'destination', 'cargo', 'value']
+                },
+                {
+                    method: 'GET',
+                    path: '/v1/logistics/shipments/:id',
+                    description: 'Obtener detalles de envío',
+                    params: ['id']
+                }
+            ]
+        },
+        realestate: {
+            title: 'Real Estate API',
+            description: 'Tokenización de propiedades',
+            methods: [
+                {
+                    method: 'POST',
+                    path: '/v1/realestate/tokenize',
+                    description: 'Tokenizar propiedad',
+                    params: ['address', 'valuation', 'fractions']
+                }
+            ]
+        },
+        payments: {
+            title: 'Payments & Escrow API',
+            description: 'Pagos y contratos de garantía',
+            methods: [
+                {
+                    method: 'POST',
+                    path: '/v1/payments/escrow',
+                    description: 'Crear contrato escrow',
+                    params: ['amount', 'buyer', 'seller']
+                }
+            ]
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                    Documentación de API
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                    Explora todos los endpoints disponibles en la API de BeZhas
+                </p>
+
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                    {/* Sidebar */}
+                    <div className="lg:col-span-1 space-y-2">
+                        {Object.keys(endpoints).map(key => (
+                            <button
+                                key={key}
+                                onClick={() => setSelectedEndpoint(key)}
+                                className={`w-full text-left px-4 py-3 rounded-lg font-medium transition-all ${selectedEndpoint === key
+                                    ? 'bg-purple-600 text-white'
+                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    }`}
+                            >
+                                {endpoints[key].title}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Content */}
+                    <div className="lg:col-span-3">
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                            {endpoints[selectedEndpoint].title}
+                        </h3>
+                        <p className="text-gray-600 dark:text-gray-400 mb-6">
+                            {endpoints[selectedEndpoint].description}
+                        </p>
+
+                        <div className="space-y-4">
+                            {endpoints[selectedEndpoint].methods.map((method, idx) => (
+                                <div key={idx} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <span className={`px-3 py-1 rounded font-bold text-sm ${method.method === 'POST' ? 'bg-green-100 text-green-700' :
+                                            method.method === 'GET' ? 'bg-blue-100 text-blue-700' :
+                                                'bg-orange-100 text-orange-700'
+                                            }`}>
+                                            {method.method}
+                                        </span>
+                                        <code className="text-purple-600 dark:text-purple-400">{method.path}</code>
+                                    </div>
+                                    <p className="text-gray-600 dark:text-gray-400 text-sm mb-3">{method.description}</p>
+                                    <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded">
+                                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Parámetros:</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {method.params.map(param => (
+                                                <span key={param} className="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs font-mono">
+                                                    {param}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                            <p className="text-sm text-blue-900 dark:text-blue-300">
+                                <strong>Base URL:</strong> <code>https://api.bezhas.com</code>
+                            </p>
+                            <p className="text-sm text-blue-900 dark:text-blue-300 mt-2">
+                                <strong>Autenticación:</strong> Bearer Token en el header <code>Authorization</code>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// New Documentation Tab with integrated SDK docs
+const DocumentationTab = ({ apiKeys, address }) => {
+    const installCode = `pnpm install @bezhas/sdk-core @bezhas/web3-ai`;
+
+    const initCode = `import { BeZhasSDK } from '@bezhas/sdk-core';
+
+// Inicializar con tu API KEY (Esencial para el conteo de Loyalty)
+const bezhas = new BeZhasSDK({
+  apiKey: '${apiKeys[0]?.key || 'pk_live_bezhas_xyz...'}',
+  network: 'mainnet' // o 'testnet'
+});`;
+
+    const abiCode = `// 1. Importar ABI Estándar de Industria
+import { IndustrialContractABI } from '@bezhas/abis';
+
+// 2. Instanciar Contrato
+const contract = bezhas.getContract({
+  address: '0x123...',
+  abi: IndustrialContractABI
+});
+
+// 3. Ejecutar Validación (Cuenta para 'Transactions Per Customer')
+const result = await contract.validateOnChain({
+  docHash: '0xabc...',
+  validatorId: 'ai-verifier-v1'
+});`;
+
+    const aiCode = `// Uso de Identity & AI (Genera puntos para Tier Gold/Platinum)
+const identityScore = await bezhas.identity.verifyAI({
+  userAddress: '${address || '0xUser...'}',
+  behaviorGraph: true
+});
+
+if(identityScore > 80) {
+  console.log("Usuario verificado con Upsell ready");
+}`;
+
+    const realEstateCode = `// Ejemplo: Integración con Real Estate Contract
+import { RealEstateABI } from '@bezhas/abis';
+
+const realEstate = bezhas.getContract({
+  address: '${process.env.REACT_APP_REALESTATE_CONTRACT_ADDRESS || '0xRealEstate...'}',
+  abi: RealEstateABI
+});
+
+// Crear propiedad con validación on-chain
+const property = await realEstate.createProperty({
+  location: 'Carrera 7 #32-16, Bogotá',
+  price: '250000',
+  propertyType: 'apartment',
+  verifyWithOracle: true // Activa Quality Oracle
+});`;
+
+    return (
+        <div className="space-y-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-8 border border-gray-200 dark:border-gray-700">
+                <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+                    BeZhas SDK Documentation
+                </h2>
+                <p className="text-lg text-gray-600 dark:text-gray-400 mb-8">
+                    Integra infraestructura Blockchain e IA en minutos. Cada llamada te acerca al nivel Platinum.
+                </p>
+
+                {/* Sección 1: Instalación */}
+                <section className="mb-10">
+                    <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                        <Terminal size={24} className="text-blue-400" />
+                        1. Instalación
+                    </h3>
+                    <CodeBlock title="Bash" code={installCode} />
+                </section>
+
+                {/* Sección 2: Inicialización */}
+                <section className="mb-10">
+                    <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
+                        2. Inicialización del SDK
+                    </h3>
+                    <p className="mb-4 text-gray-600 dark:text-gray-400">
+                        Es crítico configurar correctamente la <code className="bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded text-sm">apiKey</code> para rastrear tus métricas de uso y asignar recompensas.
+                    </p>
+                    <CodeBlock title="JavaScript / TypeScript" code={initCode} />
+                </section>
+
+                {/* Sección 3: Smart Contracts */}
+                <section className="mb-10">
+                    <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
+                        3. Interacción con ABI (Smart Contracts)
+                    </h3>
+                    <p className="mb-4 text-gray-600 dark:text-gray-400">
+                        Utiliza nuestros ABIs pre-optimizados para reducir costos de gas.
+                    </p>
+                    <CodeBlock title="Contract Interaction" code={abiCode} />
+                </section>
+
+                {/* Sección 4: AI Identity */}
+                <section className="mb-10">
+                    <h3 className="text-2xl font-semibold text-purple-600 dark:text-purple-400 mb-4">
+                        4. Módulo AI Identity (Premium)
+                    </h3>
+                    <p className="mb-4 text-gray-600 dark:text-gray-400">
+                        Disponible para usuarios Gold+. Valida usuarios usando comportamiento on-chain.
+                    </p>
+                    <CodeBlock title="AI Verification" code={aiCode} />
+                </section>
+
+                {/* Sección 5: Real Estate Integration */}
+                <section className="mb-10">
+                    <h3 className="text-2xl font-semibold text-green-600 dark:text-green-400 mb-4">
+                        5. Integración con Real Estate
+                    </h3>
+                    <p className="mb-4 text-gray-600 dark:text-gray-400">
+                        Ejemplo de uso con contratos industriales desplegados.
+                    </p>
+                    <CodeBlock title="Real Estate Contract" code={realEstateCode} />
+                </section>
+
+                {/* Endpoints Disponibles */}
+                <section className="mb-10">
+                    <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
+                        6. Endpoints Disponibles
+                    </h3>
+                    <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-6 space-y-4 border border-gray-200 dark:border-gray-700">
+                        <div className="border-l-4 border-blue-500 pl-4">
+                            <p className="font-mono text-sm text-blue-600 dark:text-blue-400 mb-1">
+                                GET /api/developer/keys/:address
+                            </p>
+                            <p className="text-gray-600 dark:text-gray-400 text-sm">
+                                Obtiene todas las API Keys de un desarrollador
+                            </p>
+                        </div>
+                        <div className="border-l-4 border-green-500 pl-4">
+                            <p className="font-mono text-sm text-green-600 dark:text-green-400 mb-1">
+                                POST /api/developer/keys
+                            </p>
+                            <p className="text-gray-600 dark:text-gray-400 text-sm">
+                                Crea una nueva API Key
+                            </p>
+                        </div>
+                        <div className="border-l-4 border-yellow-500 pl-4">
+                            <p className="font-mono text-sm text-yellow-600 dark:text-yellow-400 mb-1">
+                                GET /api/developer/usage-stats/:address
+                            </p>
+                            <p className="text-gray-600 dark:text-gray-400 text-sm">
+                                Obtiene estadísticas de uso para Loyalty Program
+                            </p>
+                        </div>
+                        <div className="border-l-4 border-purple-500 pl-4">
+                            <p className="font-mono text-sm text-purple-600 dark:text-purple-400 mb-1">
+                                GET /api/vip/loyalty-stats
+                            </p>
+                            <p className="text-gray-600 dark:text-gray-400 text-sm">
+                                Calcula tier VIP y recompensas acumuladas
+                            </p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    );
+};
+
+// New Loyalty Metrics Tab
+const LoyaltyMetricsTab = ({ usageStats }) => {
+    return (
+        <div className="space-y-6">
+            {/* Developer Incentives Cards */}
+            <DeveloperIncentives usageStats={usageStats} />
+
+            {/* Métricas Detalladas */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+                    <TrendingUp className="text-green-400" />
+                    Tus Métricas de Uso
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 p-6 rounded-lg border border-purple-200 dark:border-purple-700">
+                        <p className="text-gray-600 dark:text-gray-400 text-sm mb-1">Total API Calls (Este Mes)</p>
+                        <p className="text-4xl font-bold text-purple-600 dark:text-purple-400">
+                            {usageStats?.requestsThisMonth?.toLocaleString() || 0}
+                        </p>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 p-6 rounded-lg border border-blue-200 dark:border-blue-700">
+                        <p className="text-gray-600 dark:text-gray-400 text-sm mb-1">Validaciones de Contratos</p>
+                        <p className="text-4xl font-bold text-blue-600 dark:text-blue-400">
+                            {usageStats?.smartContractCalls?.toLocaleString() || 0}
+                        </p>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 p-6 rounded-lg border border-green-200 dark:border-green-700">
+                        <p className="text-gray-600 dark:text-gray-400 text-sm mb-1">Verificaciones de Identidad</p>
+                        <p className="text-4xl font-bold text-green-600 dark:text-green-400">
+                            {usageStats?.identityValidations?.toLocaleString() || 0}
+                        </p>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 p-6 rounded-lg border border-orange-200 dark:border-orange-700">
+                        <p className="text-gray-600 dark:text-gray-400 text-sm mb-1">Total Histórico</p>
+                        <p className="text-4xl font-bold text-orange-600 dark:text-orange-400">
+                            {usageStats?.totalRequests?.toLocaleString() || 0}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                    <p className="text-sm text-blue-900 dark:text-blue-300">
+                        💡 <strong>Tip:</strong> Cada vez que tu aplicación llama a{' '}
+                        <code className="bg-blue-100 dark:bg-blue-900/50 px-2 py-1 rounded text-xs">bezhas.getContract()</code> o{' '}
+                        <code className="bg-blue-100 dark:bg-blue-900/50 px-2 py-1 rounded text-xs">bezhas.identity.verify()</code>,
+                        incrementas estos contadores y avanzas hacia el siguiente tier VIP.
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Modal para Agregar Webhook
+const AddWebhookModal = ({ onClose, onAdd }) => {
+    const [formData, setFormData] = useState({
+        url: '',
+        events: [],
+        secret: ''
+    });
+
+    const availableEvents = [
+        'shipment.created',
+        'shipment.updated',
+        'payment.completed',
+        'escrow.released',
+        'kyc.verified',
+        'property.tokenized',
+        'marketplace.sale',
+        'nft.minted',
+        'token.transferred'
+    ];
+
+    const toggleEvent = (event) => {
+        setFormData(prev => ({
+            ...prev,
+            events: prev.events.includes(event)
+                ? prev.events.filter(e => e !== event)
+                : [...prev.events, event]
+        }));
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!formData.url) {
+            toast.error('La URL es requerida');
+            return;
+        }
+        if (formData.events.length === 0) {
+            toast.error('Selecciona al menos un evento');
+            return;
+        }
+
+        // Validar URL
+        try {
+            new URL(formData.url);
+        } catch (e) {
+            toast.error('URL inválida');
+            return;
+        }
+
+        onAdd(formData);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                        Agregar Webhook
+                    </h2>
+                </div>
+
+                <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            URL del Webhook *
+                        </label>
+                        <input
+                            type="url"
+                            value={formData.url}
+                            onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+                            className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 dark:text-white"
+                            placeholder="https://tu-sitio.com/webhook"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Secret (opcional)
+                        </label>
+                        <input
+                            type="text"
+                            value={formData.secret}
+                            onChange={(e) => setFormData({ ...formData, secret: e.target.value })}
+                            className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 dark:text-white"
+                            placeholder="Dejar vacío para auto-generar"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                            Selecciona los Eventos *
+                        </label>
+                        <div className="space-y-2">
+                            {availableEvents.map(event => (
+                                <label key={event} className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.events.includes(event)}
+                                        onChange={() => toggleEvent(event)}
+                                        className="rounded text-purple-600 focus:ring-purple-500"
+                                    />
+                                    <span className="text-sm text-gray-700 dark:text-gray-300">{event}</span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="px-6 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            type="submit"
+                            className="px-6 py-2 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors"
+                        >
+                            Agregar Webhook
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+export default DeveloperConsole;
