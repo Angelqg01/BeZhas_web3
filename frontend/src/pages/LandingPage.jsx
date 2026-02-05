@@ -156,6 +156,9 @@ const LandingPage = () => {
 
             {/* Hero Section */}
             <section className="relative pt-44 pb-20 z-10 px-6">
+                {/* Token Price Widget - Floating in Hero */}
+                <TokenWidget position="hero" />
+
                 <div className="max-w-7xl mx-auto text-center reveal active">
                     <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/20 mb-8 backdrop-blur-md">
                         <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
@@ -520,9 +523,6 @@ const LandingPage = () => {
                     </div>
                 </div>
             </footer>
-
-            {/* Token Widget */}
-            <TokenWidget />
 
             {/* Registration Modal */}
             {showRegisterModal && (

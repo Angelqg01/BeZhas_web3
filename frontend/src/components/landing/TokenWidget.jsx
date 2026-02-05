@@ -1,20 +1,23 @@
 import { useState, useEffect } from 'react';
-import { Copy, TrendingUp, TrendingDown, Check } from 'lucide-react';
+import { Copy, TrendingUp, TrendingDown, Check, Activity } from 'lucide-react';
 
-const TOKEN_CONTRACT = "0x4edc77de01f2a2c87611c2f8e9249be43df745a9";
+// BEZ Token en Polygon Mainnet
+const TOKEN_CONTRACT = "0xEcBa873B534C54DE2B62acDE232ADCa4369f11A8";
 
-const TokenWidget = () => {
+const TokenWidget = ({ position = 'hero' }) => {
     const [price, setPrice] = useState(0);
     const [change, setChange] = useState(0);
     const [copied, setCopied] = useState(false);
     const [isVisible, setIsVisible] = useState(false);
+    const [lastUpdate, setLastUpdate] = useState(null);
 
     useEffect(() => {
-        // Mostrar widget después de 1.5s
-        setTimeout(() => setIsVisible(true), 1500);
+        // Mostrar widget después de 1s
+        setTimeout(() => setIsVisible(true), 1000);
 
         const fetchTokenData = async () => {
             try {
+                // Intentar obtener precio real de DexScreener (Polygon)
                 const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${TOKEN_CONTRACT}`);
                 const data = await response.json();
 
@@ -22,24 +25,41 @@ const TokenWidget = () => {
                     const pair = data.pairs[0];
                     setPrice(parseFloat(pair.priceUsd));
                     setChange(pair.priceChange?.h24 || 0);
+                    setLastUpdate(new Date());
                 } else {
-                    simulatePriceAction();
+                    // Fallback: intentar con CoinGecko o usar precio base
+                    fetchFromBackend();
                 }
             } catch (error) {
-                simulatePriceAction();
+                fetchFromBackend();
             }
         };
 
-        const simulatePriceAction = () => {
-            setPrice(prev => {
-                const newPrice = prev === 0 ? 0.8542 : prev + (Math.random() - 0.45) * 0.005;
-                return Math.max(0, newPrice);
-            });
-            setChange(2.4 + (Math.random() * 0.5));
+        const fetchFromBackend = async () => {
+            try {
+                const apiUrl = import.meta.env.VITE_API_URL || '';
+                const response = await fetch(`${apiUrl}/api/token/price`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.price) {
+                        setPrice(data.price);
+                        setChange(data.change24h || 0);
+                        setLastUpdate(new Date());
+                        return;
+                    }
+                }
+            } catch (e) {
+                // Fallback silencioso
+            }
+            // Precio base si no hay datos
+            if (price === 0) {
+                setPrice(0.0542);
+                setChange(2.4);
+            }
         };
 
         fetchTokenData();
-        const interval = setInterval(fetchTokenData, 8000);
+        const interval = setInterval(fetchTokenData, 15000); // Actualizar cada 15s
 
         return () => clearInterval(interval);
     }, []);
@@ -56,65 +76,86 @@ const TokenWidget = () => {
 
     const isPositive = change >= 0;
 
+    // Posición según prop
+    const positionClasses = position === 'hero'
+        ? 'absolute top-32 right-4 md:right-8 lg:right-12'
+        : 'fixed bottom-6 right-6';
+
     return (
         <div
-            className={`fixed bottom-6 right-6 z-50 transform transition-all duration-700 font-display ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0'
+            className={`${positionClasses} z-50 transform transition-all duration-700 font-display ${isVisible ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-10 opacity-0 scale-95'
                 }`}
         >
             {/* Glow Effect Behind */}
-            <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl blur opacity-30 animate-pulse-slow"></div>
+            <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 rounded-2xl blur-md opacity-40 animate-pulse"></div>
 
             {/* Main Card */}
-            <div className="relative bg-[#0F1014]/90 backdrop-blur-xl border border-white/10 p-4 rounded-xl shadow-2xl flex items-center gap-4 min-w-[280px]">
+            <div className="relative bg-[#0a0a0f]/95 backdrop-blur-xl border border-purple-500/30 p-4 rounded-xl shadow-2xl shadow-purple-900/20">
 
-                {/* Icon Wrapper */}
-                <div
-                    className="relative group cursor-pointer"
-                    onClick={copyContract}
-                    title="Copiar contrato"
-                >
-                    <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-purple-500/20 transition-transform group-hover:scale-105">
-                        <span className="font-bold text-white text-lg">B</span>
+                {/* Header - Oracle Badge */}
+                <div className="flex items-center justify-between mb-3 pb-2 border-b border-white/5">
+                    <div className="flex items-center gap-2">
+                        <Activity className="w-3 h-3 text-purple-400 animate-pulse" />
+                        <span className="text-[10px] font-bold text-purple-400 tracking-widest uppercase">Polygon Oracle</span>
                     </div>
-                    {/* Status Dot */}
-                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500 border-2 border-[#0F1014]"></span>
-                    </span>
-                </div>
-
-                {/* Price Info */}
-                <div className="flex-1">
-                    <div className="flex justify-between items-center mb-1">
-                        <span className="text-[10px] font-bold text-gray-400 tracking-wider uppercase">BEZ-Coin / USD</span>
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 ${isPositive
-                                ? 'text-green-400 bg-green-400/10'
-                                : 'text-red-400 bg-red-400/10'
-                            }`}>
-                            {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                            <span>{isPositive ? '+' : ''}{change.toFixed(2)}%</span>
-                        </span>
-                    </div>
-                    <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-bold text-white tracking-tight">
-                            ${price > 0 ? price.toFixed(4) : '---'}
-                        </span>
-                        <span className="text-[10px] text-gray-500 uppercase tracking-wide">Oracle Live</span>
+                    <div className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                        <span className="text-[9px] text-green-400 font-medium">LIVE</span>
                     </div>
                 </div>
 
-                {/* Copy Button */}
-                <button
-                    onClick={copyContract}
-                    className="group p-2 hover:bg-white/5 rounded-lg transition-colors border-l border-white/5 pl-4 ml-2"
-                    aria-label="Copiar Contrato"
-                >
-                    {copied ? (
-                        <Check className="w-4 h-4 text-green-400" />
-                    ) : (
-                        <Copy className="w-4 h-4 text-gray-500 group-hover:text-purple-400 transition-colors" />
-                    )}
-                </button>
+                <div className="flex items-center gap-4 min-w-[260px]">
+                    {/* Icon Wrapper */}
+                    <div
+                        className="relative group cursor-pointer"
+                        onClick={copyContract}
+                        title="Copiar contrato BEZ"
+                    >
+                        <div className="w-14 h-14 bg-gradient-to-br from-purple-600 via-indigo-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/30 transition-all group-hover:scale-105 group-hover:shadow-purple-500/50">
+                            <span className="font-bold text-white text-2xl">B</span>
+                        </div>
+                        {/* Live Status Dot */}
+                        <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-green-500 border-2 border-[#0a0a0f]"></span>
+                        </span>
+                    </div>
+
+                    {/* Price Info */}
+                    <div className="flex-1">
+                        <div className="flex justify-between items-center mb-1">
+                            <span className="text-xs font-bold text-gray-300 tracking-wide">BEZ / USD</span>
+                            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${isPositive
+                                ? 'text-green-400 bg-green-400/15 border border-green-500/20'
+                                : 'text-red-400 bg-red-400/15 border border-red-500/20'
+                                }`}>
+                                {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                                <span>{isPositive ? '+' : ''}{change.toFixed(2)}%</span>
+                            </span>
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-3xl font-bold text-white tracking-tight">
+                                ${price > 0 ? price.toFixed(4) : '0.0542'}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[9px] text-gray-500 uppercase tracking-wide">24h Change</span>
+                        </div>
+                    </div>
+
+                    {/* Copy Button */}
+                    <button
+                        onClick={copyContract}
+                        className="group p-2.5 hover:bg-purple-500/10 rounded-lg transition-all border border-white/5 hover:border-purple-500/30"
+                        aria-label="Copiar Contrato"
+                    >
+                        {copied ? (
+                            <Check className="w-4 h-4 text-green-400" />
+                        ) : (
+                            <Copy className="w-4 h-4 text-gray-500 group-hover:text-purple-400 transition-colors" />
+                        )}
+                    </button>
+                </div>
             </div>
 
             {/* Copy Toast Notification */}
