@@ -707,6 +707,56 @@ app.get('/api/stats/global', async (req, res) => {
     }
 });
 
+// ============================================================================
+// TOKEN PRICE ENDPOINT - For TokenWidget fallback
+// ============================================================================
+app.get('/api/token/price', async (req, res) => {
+    try {
+        // BEZ Token on Polygon Mainnet
+        const BEZ_CONTRACT = '0xEcBa873B534C54DE2B62acDE232ADCa4369f11A8';
+
+        // Try DexScreener API first
+        const axios = require('axios');
+        try {
+            const response = await axios.get(
+                `https://api.dexscreener.com/latest/dex/tokens/${BEZ_CONTRACT}`,
+                { timeout: 5000 }
+            );
+
+            if (response.data?.pairs?.length > 0) {
+                const pair = response.data.pairs[0];
+                return res.json({
+                    success: true,
+                    price: parseFloat(pair.priceUsd || 0),
+                    priceChange24h: parseFloat(pair.priceChange?.h24 || 0),
+                    volume24h: parseFloat(pair.volume?.h24 || 0),
+                    liquidity: parseFloat(pair.liquidity?.usd || 0),
+                    source: 'dexscreener',
+                    contract: BEZ_CONTRACT,
+                    chain: 'polygon'
+                });
+            }
+        } catch (dexError) {
+            console.log('DexScreener API failed, using fallback price');
+        }
+
+        // Fallback: Return a default/cached price
+        res.json({
+            success: true,
+            price: 0.0001,
+            priceChange24h: 0,
+            volume24h: 0,
+            liquidity: 0,
+            source: 'fallback',
+            contract: BEZ_CONTRACT,
+            chain: 'polygon'
+        });
+    } catch (error) {
+        console.error('Error fetching token price:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch token price' });
+    }
+});
+
 // Endpoint to get a nonce for a wallet address
 app.get('/api/auth/nonce/:address', (req, res) => {
     const { address } = req.params;

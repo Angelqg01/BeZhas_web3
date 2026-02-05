@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Key,
     Plus,
@@ -22,17 +22,22 @@ import {
     Terminal,
     Trophy,
     TrendingUp,
-    Target
+    Target,
+    LogIn
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
-import { useAccount } from 'wagmi';
+import { useAccount, useWalletClient } from 'wagmi';
+import { ethers } from 'ethers';
+import * as authService from '../services/authService';
 import ToolBezTab from '../components/ToolBezTab';
 
 const DeveloperConsole = () => {
     const { address, isConnected } = useAccount();
+    const { data: walletClient } = useWalletClient();
     const [apiKeys, setApiKeys] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [isAuthenticating, setIsAuthenticating] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [selectedKey, setSelectedKey] = useState(null);
     const [showKeyModal, setShowKeyModal] = useState(false);
@@ -251,13 +256,68 @@ const DeveloperConsole = () => {
         }
     };
 
-    // Generar token cuando la wallet se conecta
+    // Helper function to get stored auth token
+    const getAuthToken = useCallback(() => {
+        // First try AuthContext token from localStorage
+        const authData = localStorage.getItem('auth');
+        if (authData) {
+            try {
+                const parsed = JSON.parse(authData);
+                if (parsed.token) return parsed.token;
+            } catch (e) { /* ignore */ }
+        }
+        // Fallback to direct token (for backward compatibility)
+        return localStorage.getItem('bezhas-jwt') || localStorage.getItem('token');
+    }, []);
+
+    // Authenticate with wallet signature
+    const authenticateWithWallet = async () => {
+        if (!isConnected || !address) {
+            toast.error('Conecta tu wallet primero');
+            return false;
+        }
+
+        setIsAuthenticating(true);
+        try {
+            let signer;
+            if (walletClient) {
+                const provider = new ethers.BrowserProvider(walletClient);
+                signer = await provider.getSigner();
+            } else if (window.ethereum) {
+                const provider = new ethers.BrowserProvider(window.ethereum);
+                signer = await provider.getSigner();
+            } else {
+                throw new Error('No wallet provider detected');
+            }
+
+            // 1. Get Nonce from backend
+            const nonce = await authService.getNonce(address);
+
+            // 2. Sign the nonce message
+            const message = `Sign this message to verify your identity: ${nonce}`;
+            const signature = await signer.signMessage(message);
+
+            // 3. Login with wallet
+            const data = await authService.loginWithWallet(address, signature, message);
+
+            // Store token
+            localStorage.setItem('auth', JSON.stringify({ user: data.user, token: data.token }));
+            localStorage.setItem('bezhas-jwt', data.token);
+
+            toast.success('Autenticación exitosa');
+            return true;
+        } catch (error) {
+            console.error('Authentication error:', error);
+            toast.error(error.message || 'Error al autenticar. Intenta de nuevo.');
+            return false;
+        } finally {
+            setIsAuthenticating(false);
+        }
+    };
+
+    // Check auth status when wallet connects
     useEffect(() => {
         if (isConnected && address) {
-            // Generar un token simple basado en la dirección de la wallet
-            // En producción, esto debería ser un JWT firmado por el backend
-            const token = `wallet_${address}_${Date.now()}`;
-            localStorage.setItem('token', token);
             localStorage.setItem('wallet_address', address);
         }
     }, [isConnected, address]);
@@ -272,11 +332,11 @@ const DeveloperConsole = () => {
 
     const fetchApiKeys = async () => {
         try {
-            const token = localStorage.getItem('token');
+            const token = getAuthToken();
 
             if (!token || !isConnected) {
                 if (!isConnected) {
-                    toast.error('Conecta tu wallet para acceder al Developer Console');
+                    // Don't show error, just wait for connection
                 }
                 setBackendAvailable(false);
                 setApiKeys([]);
@@ -319,8 +379,11 @@ const DeveloperConsole = () => {
     const fetchUsageStats = async () => {
         try {
             if (!address) return;
+            const token = getAuthToken();
+            if (!token) return;
 
             const response = await axios.get(`/api/developer/usage-stats/${address}`, {
+                headers: { Authorization: `Bearer ${token}` },
                 timeout: 5000
             });
 
@@ -340,11 +403,13 @@ const DeveloperConsole = () => {
                 return;
             }
 
-            const token = localStorage.getItem('token');
+            let token = getAuthToken();
 
             if (!token) {
-                toast.error('Token no encontrado. Recarga la página e intenta nuevamente.');
-                return;
+                // Try to authenticate first
+                const success = await authenticateWithWallet();
+                if (!success) return;
+                token = getAuthToken();
             }
 
             const response = await axios.post('/api/developer/keys', formData, {
@@ -374,7 +439,7 @@ const DeveloperConsole = () => {
         if (!confirm('¿Estás seguro? Esta acción no se puede deshacer.')) return;
 
         try {
-            const token = localStorage.getItem('token');
+            const token = getAuthToken();
             await axios.delete(`/api/developer/keys/${keyId}`, {
                 headers: { Authorization: `Bearer ${token}` },
                 timeout: 5000
@@ -391,7 +456,7 @@ const DeveloperConsole = () => {
         if (!window.confirm('¿Rotar esta clave? La anterior dejará de funcionar.')) return;
 
         try {
-            const token = localStorage.getItem('token');
+            const token = getAuthToken();
             // Optimización: Usar URL constante si existiera, pero mantenemos path relativo por API proxy
             const response = await axios.post(`/api/developer/keys/${keyId}/rotate`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -455,11 +520,22 @@ const DeveloperConsole = () => {
                                     </span>
                                 </div>
                             )}
+                            {/* Auth Button - show if connected but no valid token */}
+                            {isConnected && !getAuthToken() && (
+                                <button
+                                    onClick={authenticateWithWallet}
+                                    disabled={isAuthenticating}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    <LogIn className="w-4 h-4" />
+                                    {isAuthenticating ? 'Firmando...' : 'Iniciar Sesión'}
+                                </button>
+                            )}
                             <button
                                 onClick={() => setShowCreateModal(true)}
-                                disabled={!backendAvailable || !isConnected}
+                                disabled={!backendAvailable || !isConnected || !getAuthToken()}
                                 className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold hover:shadow-xl hover:scale-105 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-                                title={!isConnected ? 'Conecta tu wallet primero' : backendAvailable ? 'Crear una nueva API Key para tu aplicación' : 'Backend no disponible'}
+                                title={!isConnected ? 'Conecta tu wallet primero' : !getAuthToken() ? 'Inicia sesión primero' : backendAvailable ? 'Crear una nueva API Key para tu aplicación' : 'Backend no disponible'}
                             >
                                 <Plus className="w-5 h-5" />
                                 Nueva API Key
@@ -1405,7 +1481,7 @@ const WebhooksTab = ({ apiKeys }) => {
 
         try {
             setLoading(true);
-            const token = localStorage.getItem('token');
+            const token = getAuthToken();
             const response = await axios.get(`/api/developer/keys/${selectedApiKey}/webhooks`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -1427,7 +1503,7 @@ const WebhooksTab = ({ apiKeys }) => {
         }
 
         try {
-            const token = localStorage.getItem('token');
+            const token = getAuthToken();
             await axios.post(`/api/developer/keys/${selectedApiKey}/webhooks`, webhookData, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -1444,7 +1520,7 @@ const WebhooksTab = ({ apiKeys }) => {
         if (!window.confirm('¿Eliminar este webhook?')) return;
 
         try {
-            const token = localStorage.getItem('token');
+            const token = getAuthToken();
             await axios.delete(`/api/developer/keys/${selectedApiKey}/webhooks/${webhookId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
