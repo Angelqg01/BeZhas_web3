@@ -54,6 +54,20 @@ steps:
     id: "build-frontend"
     waitFor: ["-"] # Run in parallel with backend
 
+  # ===== Step 2b: Build MCP Intelligence Server Image =====
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "build"
+      - "-t"
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO}/bezhas-intelligence:${_TAG}"
+      - "-t"
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO}/bezhas-intelligence:latest"
+      - "-f"
+      - "packages/mcp-server/Dockerfile"
+      - "packages/mcp-server"
+    id: "build-mcp"
+    waitFor: ["-"] # Run in parallel
+
   # ===== Step 3: Push Backend Image =====
   - name: "gcr.io/cloud-builders/docker"
     args:
@@ -75,6 +89,17 @@ steps:
       ]
     id: "push-frontend"
     waitFor: ["build-frontend"]
+
+  # ===== Step 4b: Push MCP Intelligence Server Image =====
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "push",
+        "--all-tags",
+        "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO}/bezhas-intelligence",
+      ]
+    id: "push-mcp"
+    waitFor: ["build-mcp"]
 
   # ===== Step 5: Deploy Backend to Cloud Run =====
   - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
@@ -107,9 +132,44 @@ steps:
       - "--set-env-vars"
       - "NODE_ENV=production,GCP_PROJECT_ID=$PROJECT_ID"
       - "--set-secrets"
-      - "ALLOWED_ORIGINS=ALLOWED_ORIGINS:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest,JWT_SECRET=JWT_SECRET:latest,MONGODB_URI=MONGODB_URI:latest,REDIS_URL=REDIS_URL:latest,GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,GITHUB_CLIENT_ID=GITHUB_CLIENT_ID:latest,GITHUB_CLIENT_SECRET=GITHUB_CLIENT_SECRET:latest,RELAYER_PRIVATE_KEY=RELAYER_PRIVATE_KEY:latest,POLYGON_RPC_URL=POLYGON_RPC_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,PINATA_API_KEY=PINATA_API_KEY:latest,PINATA_SECRET_KEY=PINATA_SECRET_KEY:latest,GOVERNANCE_CONTRACT_ADDRESS=GOVERNANCE_CONTRACT_ADDRESS:latest,FARMING_CONTRACT_ADDRESS=FARMING_CONTRACT_ADDRESS:latest,MARKETPLACE_CONTRACT_ADDRESS=MARKETPLACE_CONTRACT_ADDRESS:latest,BEZCOIN_CONTRACT_ADDRESS=BEZCOIN_CONTRACT_ADDRESS:latest,CORE_CONTRACT_ADDRESS=CORE_CONTRACT_ADDRESS:latest,QUALITY_ESCROW_ADDRESS=QUALITY_ESCROW_ADDRESS:latest"
+      - "ALLOWED_ORIGINS=ALLOWED_ORIGINS:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest,JWT_SECRET=JWT_SECRET:latest,MONGODB_URI=MONGODB_URI:latest,REDIS_URL=REDIS_URL:latest,GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,GITHUB_CLIENT_ID=GITHUB_CLIENT_ID:latest,GITHUB_CLIENT_SECRET=GITHUB_CLIENT_SECRET:latest,RELAYER_PRIVATE_KEY=RELAYER_PRIVATE_KEY:latest,POLYGON_RPC_URL=POLYGON_RPC_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,PINATA_API_KEY=PINATA_API_KEY:latest,PINATA_SECRET_KEY=PINATA_SECRET_KEY:latest,GOVERNANCE_CONTRACT_ADDRESS=GOVERNANCE_CONTRACT_ADDRESS:latest,FARMING_CONTRACT_ADDRESS=FARMING_CONTRACT_ADDRESS:latest,MARKETPLACE_CONTRACT_ADDRESS=MARKETPLACE_CONTRACT_ADDRESS:latest,BEZCOIN_CONTRACT_ADDRESS=BEZCOIN_CONTRACT_ADDRESS:latest,CORE_CONTRACT_ADDRESS=CORE_CONTRACT_ADDRESS:latest,QUALITY_ESCROW_ADDRESS=QUALITY_ESCROW_ADDRESS:latest,SUPER_ADMIN_WALLETS=SUPER_ADMIN_WALLETS:latest,ADMIN_WALLETS=ADMIN_WALLETS:latest,TREASURY_WALLET=TREASURY_WALLET:latest,COMMUNITY_WALLET=COMMUNITY_WALLET:latest,MCP_SERVER_URL=MCP_SERVER_URL:latest"
     id: "deploy-backend"
     waitFor: ["push-backend"]
+
+  # ===== Step 5b: Deploy MCP Intelligence Server to Cloud Run =====
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: gcloud
+    args:
+      - "run"
+      - "deploy"
+      - "bezhas-intelligence"
+      - "--image"
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO}/bezhas-intelligence:${_TAG}"
+      - "--region"
+      - "${_REGION}"
+      - "--platform"
+      - "managed"
+      - "--no-allow-unauthenticated"
+      - "--port"
+      - "8080"
+      - "--min-instances"
+      - "0"
+      - "--max-instances"
+      - "5"
+      - "--memory"
+      - "512Mi"
+      - "--cpu"
+      - "1"
+      - "--concurrency"
+      - "40"
+      - "--timeout"
+      - "30"
+      - "--set-env-vars"
+      - "NODE_ENV=production,HTTP_PORT=8080"
+      - "--set-secrets"
+      - "POLYGON_RPC_URL=POLYGON_RPC_URL:latest,BEZCOIN_CONTRACT_ADDRESS=BEZCOIN_CONTRACT_ADDRESS:latest,MONGODB_URI=MONGODB_URI:latest,GITHUB_TOKEN=GITHUB_TOKEN:latest,FIRECRAWL_API_KEY=FIRECRAWL_API_KEY:latest,TALLY_API_KEY=TALLY_API_KEY:latest,ALPACA_API_KEY=ALPACA_API_KEY:latest,ALPACA_SECRET_KEY=ALPACA_SECRET_KEY:latest"
+    id: "deploy-mcp"
+    waitFor: ["push-mcp"]
 
   # ===== Step 6: Deploy Frontend to Cloud Run =====
   - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
@@ -140,6 +200,8 @@ images:
   - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO}/bezhas-backend:latest"
   - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO}/bezhas-frontend:${_TAG}"
   - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO}/bezhas-frontend:latest"
+  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO}/bezhas-intelligence:${_TAG}"
+  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO}/bezhas-intelligence:latest"
 
 # Build timeout (20 minutes)
 timeout: "1200s"
