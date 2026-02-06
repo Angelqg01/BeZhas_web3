@@ -234,7 +234,7 @@ export default function UserBehaviorAnalytics() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white">
                     <Users className="mb-2" size={24} />
-                    <div className="text-3xl font-bold">{churnPrediction?.totalUsers.toLocaleString()}</div>
+                    <div className="text-3xl font-bold">{(churnPrediction?.totalUsers || 0).toLocaleString()}</div>
                     <div className="text-blue-100 text-sm">Total Usuarios</div>
                     <div className="mt-2 text-xs text-blue-200">{userSegments[0]?.count} power users</div>
                 </div>
@@ -317,42 +317,46 @@ export default function UserBehaviorAnalytics() {
                             <div className="grid grid-cols-2 gap-4 mb-4">
                                 <div className="p-4 bg-red-500/10 rounded-lg border border-red-500/30">
                                     <div className="text-sm text-gray-400">Usuarios en Riesgo</div>
-                                    <div className="text-2xl font-bold text-white">{churnPrediction.atRiskUsers}</div>
+                                    <div className="text-2xl font-bold text-white">{churnPrediction.atRiskUsers || 0}</div>
                                     <div className="text-xs text-red-400">Requiere acción inmediata</div>
                                 </div>
                                 <div className="p-4 bg-green-500/10 rounded-lg border border-green-500/30">
                                     <div className="text-sm text-gray-400">Tasa de Prevención</div>
-                                    <div className="text-2xl font-bold text-white">{churnPrediction.preventionRate}%</div>
+                                    <div className="text-2xl font-bold text-white">{churnPrediction.preventionRate ?? 0}%</div>
                                     <div className="text-xs text-green-400">Campañas efectivas</div>
                                 </div>
                             </div>
-                            <ResponsiveContainer width="100%" height={150}>
-                                <LineChart data={churnPrediction.timeline}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                                    <XAxis dataKey="week" stroke="#9ca3af" />
-                                    <YAxis stroke="#9ca3af" />
-                                    <Tooltip
-                                        contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151' }}
-                                        labelStyle={{ color: '#fff' }}
-                                    />
-                                    <Legend />
-                                    <Line type="monotone" dataKey="predicted" stroke="#f59e0b" strokeWidth={2} name="Predicho" strokeDasharray="5 5" />
-                                    <Line type="monotone" dataKey="actual" stroke="#ef4444" strokeWidth={2} name="Real" />
-                                </LineChart>
-                            </ResponsiveContainer>
-                            <div className="mt-4 space-y-2">
-                                <div className="text-sm font-semibold text-white mb-2">Factores de Riesgo:</div>
-                                {churnPrediction.riskFactors.map((risk, idx) => (
-                                    <div key={idx} className={`flex items-center justify-between p-2 rounded ${risk.impact === 'high' ? 'bg-red-500/10' : 'bg-yellow-500/10'
-                                        }`}>
-                                        <span className="text-sm text-gray-300">{risk.factor}</span>
-                                        <span className={`text-xs font-semibold ${risk.impact === 'high' ? 'text-red-400' : 'text-yellow-400'
+                            {churnPrediction.timeline?.length > 0 && (
+                                <ResponsiveContainer width="100%" height={150}>
+                                    <LineChart data={churnPrediction.timeline}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                                        <XAxis dataKey="week" stroke="#9ca3af" />
+                                        <YAxis stroke="#9ca3af" />
+                                        <Tooltip
+                                            contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151' }}
+                                            labelStyle={{ color: '#fff' }}
+                                        />
+                                        <Legend />
+                                        <Line type="monotone" dataKey="predicted" stroke="#f59e0b" strokeWidth={2} name="Predicho" strokeDasharray="5 5" />
+                                        <Line type="monotone" dataKey="actual" stroke="#ef4444" strokeWidth={2} name="Real" />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            )}
+                            {churnPrediction.riskFactors?.length > 0 && (
+                                <div className="mt-4 space-y-2">
+                                    <div className="text-sm font-semibold text-white mb-2">Factores de Riesgo:</div>
+                                    {churnPrediction.riskFactors.map((risk, idx) => (
+                                        <div key={idx} className={`flex items-center justify-between p-2 rounded ${risk.impact === 'high' ? 'bg-red-500/10' : 'bg-yellow-500/10'
                                             }`}>
-                                            {risk.affected} usuarios
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
+                                            <span className="text-sm text-gray-300">{risk.factor}</span>
+                                            <span className={`text-xs font-semibold ${risk.impact === 'high' ? 'text-red-400' : 'text-yellow-400'
+                                                }`}>
+                                                {risk.affected} usuarios
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </>
                     )}
                 </div>
@@ -447,7 +451,7 @@ export default function UserBehaviorAnalytics() {
                                     </div>
                                 </div>
                                 <div className="flex flex-wrap gap-2 mt-2">
-                                    {pattern.characteristics.map((char, cidx) => (
+                                    {(pattern.characteristics || []).map((char, cidx) => (
                                         <span key={cidx} className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full border border-blue-500/30">
                                             {char}
                                         </span>
@@ -522,11 +526,11 @@ export default function UserBehaviorAnalytics() {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <div className="text-xs text-gray-400">LTV</div>
-                                        <div className="text-xl font-bold text-white">${segment.ltv.toFixed(2)}</div>
+                                        <div className="text-xl font-bold text-white">${(segment.ltv || 0).toFixed(2)}</div>
                                     </div>
                                     <div>
                                         <div className="text-xs text-gray-400">CAC</div>
-                                        <div className="text-xl font-bold text-white">${segment.acquisitionCost.toFixed(2)}</div>
+                                        <div className="text-xl font-bold text-white">${(segment.acquisitionCost || 0).toFixed(2)}</div>
                                     </div>
                                 </div>
                             </div>

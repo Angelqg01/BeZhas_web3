@@ -152,21 +152,37 @@ export const mockData = {
     viralityAnalysis: {
         viralPosts: 23,
         avgViralityScore: 7.8,
+        viralityScore: 78.5,
+        averageShareRate: 4.2,
         peakHours: [9, 12, 18, 21],
         topFormats: ['video', 'carousel', 'image'],
         viralFactors: {
             timing: 0.35,
             content: 0.40,
             engagement: 0.25
-        }
+        },
+        topViralPost: {
+            id: 'post_mock_001',
+            title: 'Web3 Revolution in Social Media',
+            shares: 1543,
+            views: 45678,
+            engagement: 89.2
+        },
+        distribution: [
+            { range: '0-100', count: 450 },
+            { range: '100-500', count: 320 },
+            { range: '500-1K', count: 180 },
+            { range: '1K-5K', count: 85 },
+            { range: '5K+', count: 23 }
+        ]
     },
 
     autoTags: [
-        { tag: 'crypto', count: 2456, accuracy: 94.5 },
-        { tag: 'tutorial', count: 1876, accuracy: 91.2 },
-        { tag: 'news', count: 1654, accuracy: 89.8 },
-        { tag: 'meme', count: 1234, accuracy: 87.5 },
-        { tag: 'analysis', count: 987, accuracy: 92.1 }
+        { tag: 'crypto', count: 2456, frequency: 2456, accuracy: 94.5, confidence: 0.945, category: 'primary' },
+        { tag: 'tutorial', count: 1876, frequency: 1876, accuracy: 91.2, confidence: 0.912, category: 'primary' },
+        { tag: 'news', count: 1654, frequency: 1654, accuracy: 89.8, confidence: 0.898, category: 'secondary' },
+        { tag: 'meme', count: 1234, frequency: 1234, accuracy: 87.5, confidence: 0.875, category: 'secondary' },
+        { tag: 'analysis', count: 987, frequency: 987, accuracy: 92.1, confidence: 0.921, category: 'tertiary' }
     ],
 
     // User Behavior
@@ -182,8 +198,23 @@ export const mockData = {
         totalUsers: 3578,
         atRiskUsers: 456,
         churnProbability: 12.8,
+        churnRate: 12.8,
+        predictedChurn: 523,
         predictedChurn30d: 89,
-        retentionActions: ['Email Campaign', 'Push Notifications', 'Incentives']
+        preventionRate: 68.5,
+        retentionActions: ['Email Campaign', 'Push Notifications', 'Incentives'],
+        riskFactors: [
+            { factor: 'Baja frecuencia de login', impact: 'high', affected: 234 },
+            { factor: 'Sin engagement 7 días', impact: 'high', affected: 189 },
+            { factor: 'Pérdida de conexiones', impact: 'medium', affected: 145 },
+            { factor: 'Sin crear contenido', impact: 'medium', affected: 123 }
+        ],
+        timeline: [
+            { week: 'Sem 1', predicted: 45, actual: 42 },
+            { week: 'Sem 2', predicted: 52, actual: 48 },
+            { week: 'Sem 3', predicted: 48, actual: 51 },
+            { week: 'Sem 4', predicted: 56, actual: 53 }
+        ]
     },
 
     // AB Testing
@@ -216,7 +247,8 @@ export const mockData = {
             lastRun: new Date().toISOString(),
             duration: 245,
             recordsProcessed: 543829,
-            successRate: 99.8
+            successRate: 99.8,
+            schedule: '*/15 * * * *'
         },
         {
             id: 'pipeline_002',
@@ -225,7 +257,8 @@ export const mockData = {
             lastRun: new Date().toISOString(),
             duration: 180,
             recordsProcessed: 234567,
-            successRate: 99.5
+            successRate: 99.5,
+            schedule: '*/30 * * * *'
         }
     ],
 
@@ -234,7 +267,23 @@ export const mockData = {
         completeness: 96.2,
         accuracy: 93.8,
         consistency: 95.1,
-        timeliness: 92.9
+        timeliness: 92.9,
+        dimensions: [
+            { name: 'Completeness', score: 96.2, issues: 234 },
+            { name: 'Accuracy', score: 93.8, issues: 456 },
+            { name: 'Consistency', score: 95.1, issues: 189 },
+            { name: 'Timeliness', score: 92.9, issues: 123 },
+            { name: 'Validity', score: 94.1, issues: 345 }
+        ],
+        trend: [
+            { date: '2026-01-20', score: 92.1 },
+            { date: '2026-01-21', score: 93.4 },
+            { date: '2026-01-22', score: 93.8 },
+            { date: '2026-01-23', score: 94.2 },
+            { date: '2026-01-24', score: 94.7 },
+            { date: '2026-01-25', score: 94.3 },
+            { date: '2026-01-26', score: 94.5 }
+        ]
     },
 
     // ML Training

@@ -3,9 +3,12 @@ import {
     Brain, Bot, MessageSquare, Activity, Settings, Sparkles,
     HelpCircle, X, ChevronRight, RefreshCw, Zap, Shield,
     TrendingUp, Target, Users, BarChart3, Cpu, Database,
-    Info, CheckCircle, AlertTriangle, ExternalLink
+    Info, CheckCircle, AlertTriangle, ExternalLink,
+    Globe, GitBranch, Bug, Eye, Layers, Lock, Vote,
+    Server, Truck, LineChart, Plug, Download
 } from 'lucide-react';
 import aiApi, { mockData } from '../../services/aiApi';
+import http from '../../services/http';
 
 // Lazy load heavy components
 const DiagnosticDashboard = lazy(() => import('../../components/admin/DiagnosticDashboard'));
@@ -141,6 +144,317 @@ const QuickStatCard = ({ icon: Icon, label, value, color = 'purple', trend }) =>
     );
 };
 
+/**
+ * MCP Dashboard - Master list of all 13 MCP Intelligence Tools
+ * Shows real-time status, health indicators, and tool descriptions.
+ */
+const MCP_TOOLS_MASTER = [
+    {
+        id: 'analyze_gas_strategy',
+        name: 'Polygon Gas MCP',
+        category: 'Blockchain',
+        icon: Zap,
+        color: 'purple',
+        endpoint: '/api/mcp/analyze-gas',
+        description: 'Análisis de gas en Polygon, rentabilidad y decisión Relayer vs User.',
+        actions: ['iot_ingest', 'marketplace_buy', 'token_transfer', 'nft_mint', 'staking_deposit'],
+    },
+    {
+        id: 'calculate_smart_swap',
+        name: 'Balance Swap MCP',
+        category: 'Blockchain',
+        icon: TrendingUp,
+        color: 'blue',
+        endpoint: '/api/mcp/calculate-swap',
+        description: 'Swap inteligente BEZ↔FIAT con cálculo de fees y fee burning.',
+        actions: ['BEZ_TO_FIAT', 'FIAT_TO_BEZ'],
+    },
+    {
+        id: 'verify_regulatory_compliance',
+        name: 'Compliance MCP',
+        category: 'Compliance',
+        icon: Shield,
+        color: 'green',
+        endpoint: '/api/mcp/verify-compliance',
+        description: 'Verificación AML/KYC, scoring de riesgo y bloqueo de regiones sancionadas.',
+        actions: ['transfer', 'swap', 'marketplace', 'staking'],
+    },
+    {
+        id: 'github_repo_manager',
+        name: 'GitHub MCP',
+        category: 'DevOps',
+        icon: GitBranch,
+        color: 'purple',
+        endpoint: '/api/mcp/github',
+        description: 'Gestión de repos GitHub, auto-documentación, PRs y análisis de salud.',
+        actions: ['analyze_repo', 'generate_docs', 'create_pr', 'check_health', 'list_issues'],
+    },
+    {
+        id: 'firecrawl_scraper',
+        name: 'Firecrawl MCP',
+        category: 'Intelligence',
+        icon: Globe,
+        color: 'yellow',
+        endpoint: '/api/mcp/firecrawl',
+        description: 'Web scraping, descubrimiento de productos y monitoreo de proyectos Web3.',
+        actions: ['scrape_page', 'extract_products', 'monitor_competitors', 'discover_web3_projects'],
+    },
+    {
+        id: 'playwright_automation',
+        name: 'Playwright MCP',
+        category: 'Testing',
+        icon: Bug,
+        color: 'red',
+        endpoint: '/api/mcp/playwright',
+        description: 'Automatización de browser, testing UI, auditorías de rendimiento y accesibilidad.',
+        actions: ['test_page_load', 'test_wallet_flow', 'audit_performance', 'audit_accessibility'],
+    },
+    {
+        id: 'blockscout_explorer',
+        name: 'Blockscout MCP',
+        category: 'Blockchain',
+        icon: Eye,
+        color: 'blue',
+        endpoint: '/api/mcp/blockscout',
+        description: 'Explorador on-chain del token $BEZ: holders, transacciones, supply metrics.',
+        actions: ['token_info', 'holder_analysis', 'transaction_history', 'supply_metrics'],
+    },
+    {
+        id: 'skill_creator_ai',
+        name: 'Skill Creator AI',
+        category: 'AI',
+        icon: Layers,
+        color: 'purple',
+        endpoint: '/api/mcp/skill-creator',
+        description: 'Generador de skills y pipelines multi-paso (Web3 + AI + IoT).',
+        actions: ['create_skill', 'compose_pipeline', 'list_templates', 'validate_skill'],
+    },
+    {
+        id: 'auditmos_security',
+        name: 'Auditmos Security',
+        category: 'Security',
+        icon: Lock,
+        color: 'red',
+        endpoint: '/api/mcp/auditmos',
+        description: 'Auditoría de seguridad de smart contracts y detección de vulnerabilidades.',
+        actions: ['audit_contract', 'check_vulnerabilities', 'gas_optimization', 'best_practices'],
+    },
+    {
+        id: 'tally_dao_governance',
+        name: 'Tally DAO MCP',
+        category: 'Governance',
+        icon: Vote,
+        color: 'green',
+        endpoint: '/api/mcp/tally-dao',
+        description: 'Gobernanza DAO: propuestas, votaciones, delegación y tesorería.',
+        actions: ['list_proposals', 'analyze_voting_power', 'check_quorum', 'treasury_status'],
+    },
+    {
+        id: 'obliq_ai_sre',
+        name: 'Obliq AI SRE',
+        category: 'SRE',
+        icon: Server,
+        color: 'yellow',
+        endpoint: '/api/mcp/obliq-sre',
+        description: 'SRE con IA: monitoreo de servicios, incidentes, métricas y análisis de logs.',
+        actions: ['health_check', 'check_alerts', 'performance_metrics', 'analyze_logs'],
+    },
+    {
+        id: 'kinaxis_supply_chain',
+        name: 'Kinaxis IoT MCP',
+        category: 'IoT',
+        icon: Truck,
+        color: 'blue',
+        endpoint: '/api/mcp/kinaxis',
+        description: 'Cadena de suministro y telemetría IoT para dispositivos ToolBEZ/Begaz.',
+        actions: ['ingest_telemetry', 'fleet_overview', 'sensor_analysis', 'supply_forecast'],
+    },
+    {
+        id: 'alpaca_markets',
+        name: 'Alpaca Markets MCP',
+        category: 'Trading',
+        icon: LineChart,
+        color: 'green',
+        endpoint: '/api/mcp/alpaca-markets',
+        description: 'Trading y tesorería: precio BEZ, portafolio, DCA y sentimiento de mercado.',
+        actions: ['market_overview', 'price_analysis', 'treasury_portfolio', 'sentiment_analysis'],
+    },
+];
+
+const McpDashboardTab = () => {
+    const [toolStatuses, setToolStatuses] = useState({});
+    const [isChecking, setIsChecking] = useState(false);
+    const [lastCheck, setLastCheck] = useState(null);
+
+    const checkAllTools = async () => {
+        setIsChecking(true);
+        const statuses = {};
+        const MCP_BASE = import.meta.env.VITE_MCP_URL || import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
+        await Promise.all(
+            MCP_TOOLS_MASTER.map(async (tool) => {
+                try {
+                    const start = Date.now();
+                    const res = await fetch(`${MCP_BASE}${tool.endpoint}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: tool.actions[0], check: true }),
+                        signal: AbortSignal.timeout(8000),
+                    });
+                    statuses[tool.id] = {
+                        status: res.ok ? 'online' : 'degraded',
+                        latencyMs: Date.now() - start,
+                        httpCode: res.status,
+                    };
+                } catch {
+                    statuses[tool.id] = { status: 'offline', latencyMs: -1, httpCode: 0 };
+                }
+            })
+        );
+
+        setToolStatuses(statuses);
+        setLastCheck(new Date().toISOString());
+        setIsChecking(false);
+    };
+
+    const getStatusBadge = (toolId) => {
+        const s = toolStatuses[toolId];
+        if (!s) return <span className="text-xs px-2 py-0.5 rounded-full bg-gray-600/30 text-gray-400">Sin verificar</span>;
+        if (s.status === 'online') return <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-400">● Online ({s.latencyMs}ms)</span>;
+        if (s.status === 'degraded') return <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-400">● Degraded ({s.httpCode})</span>;
+        return <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-400">● Offline</span>;
+    };
+
+    const colorClasses = {
+        purple: 'from-purple-600/20 to-purple-800/10 border-purple-700/50 text-purple-400',
+        blue: 'from-blue-600/20 to-blue-800/10 border-blue-700/50 text-blue-400',
+        green: 'from-green-600/20 to-green-800/10 border-green-700/50 text-green-400',
+        yellow: 'from-yellow-600/20 to-yellow-800/10 border-yellow-700/50 text-yellow-400',
+        red: 'from-red-600/20 to-red-800/10 border-red-700/50 text-red-400',
+    };
+
+    const onlineCount = Object.values(toolStatuses).filter(s => s.status === 'online').length;
+    const totalChecked = Object.keys(toolStatuses).length;
+
+    return (
+        <div className="space-y-6">
+            {/* Header */}
+            <div className="bg-gray-900/80 border border-gray-700 rounded-2xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-3 bg-gradient-to-br from-purple-600 to-blue-600 rounded-xl">
+                            <Plug size={24} />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-bold text-white">BEZHAS-MCP Intelligence Suite</h2>
+                            <p className="text-sm text-gray-400">
+                                {MCP_TOOLS_MASTER.length} herramientas MCP registradas
+                                {totalChecked > 0 && ` • ${onlineCount}/${totalChecked} online`}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        {lastCheck && (
+                            <span className="text-xs text-gray-500">
+                                Último check: {new Date(lastCheck).toLocaleTimeString()}
+                            </span>
+                        )}
+                        <button
+                            onClick={checkAllTools}
+                            disabled={isChecking}
+                            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+                        >
+                            <RefreshCw className={`w-4 h-4 ${isChecking ? 'animate-spin' : ''}`} />
+                            {isChecking ? 'Verificando...' : 'Health Check'}
+                        </button>
+                    </div>
+                </div>
+
+                {/* Summary Stats */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-gray-800/50 rounded-xl p-3 text-center">
+                        <p className="text-2xl font-bold text-purple-400">{MCP_TOOLS_MASTER.length}</p>
+                        <p className="text-xs text-gray-400">Total Tools</p>
+                    </div>
+                    <div className="bg-gray-800/50 rounded-xl p-3 text-center">
+                        <p className="text-2xl font-bold text-green-400">{onlineCount}</p>
+                        <p className="text-xs text-gray-400">Online</p>
+                    </div>
+                    <div className="bg-gray-800/50 rounded-xl p-3 text-center">
+                        <p className="text-2xl font-bold text-blue-400">{[...new Set(MCP_TOOLS_MASTER.map(t => t.category))].length}</p>
+                        <p className="text-xs text-gray-400">Categorías</p>
+                    </div>
+                    <div className="bg-gray-800/50 rounded-xl p-3 text-center">
+                        <p className="text-2xl font-bold text-yellow-400">{MCP_TOOLS_MASTER.reduce((sum, t) => sum + t.actions.length, 0)}</p>
+                        <p className="text-xs text-gray-400">Acciones</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Tools Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {MCP_TOOLS_MASTER.map((tool) => {
+                    const Icon = tool.icon;
+                    const cls = colorClasses[tool.color] || colorClasses.purple;
+                    return (
+                        <div
+                            key={tool.id}
+                            className={`bg-gradient-to-br ${cls.split(' ').slice(0, 2).join(' ')} border ${cls.split(' ')[2]} rounded-xl p-5 hover:scale-[1.01] transition-all`}
+                        >
+                            <div className="flex items-start justify-between mb-3">
+                                <div className="flex items-center gap-3">
+                                    <div className={`p-2 rounded-lg bg-gray-800/60`}>
+                                        <Icon className={cls.split(' ').pop()} size={22} />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-semibold text-white text-sm">{tool.name}</h3>
+                                        <span className="text-xs text-gray-400 bg-gray-800/40 px-2 py-0.5 rounded-full">{tool.category}</span>
+                                    </div>
+                                </div>
+                                {getStatusBadge(tool.id)}
+                            </div>
+
+                            <p className="text-sm text-gray-300 mb-3 line-clamp-2">{tool.description}</p>
+
+                            <div className="border-t border-gray-700/50 pt-3">
+                                <p className="text-xs text-gray-500 mb-1">Acciones disponibles:</p>
+                                <div className="flex flex-wrap gap-1">
+                                    {tool.actions.slice(0, 4).map((a) => (
+                                        <span key={a} className="text-[10px] bg-gray-800/60 text-gray-400 px-1.5 py-0.5 rounded">
+                                            {a}
+                                        </span>
+                                    ))}
+                                    {tool.actions.length > 4 && (
+                                        <span className="text-[10px] text-gray-500">+{tool.actions.length - 4} más</span>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="mt-3 pt-2 border-t border-gray-700/50">
+                                <code className="text-[10px] text-gray-500 font-mono">POST {tool.endpoint}</code>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Integration Note */}
+            <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                    <Info className="text-purple-400 mt-0.5 flex-shrink-0" size={18} />
+                    <div>
+                        <p className="text-sm text-purple-300 font-medium">BEZHAS-MCP actúa a través del BeZhas SDK</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                            Los desarrolladores pueden acceder a todas las herramientas MCP a través del BeZhas SDK.
+                            Descarga el SDK e instalador MCP desde la <strong>Developer Console</strong>.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export default function AdminAI() {
     const [activeTab, setActiveTab] = useState('overview');
     const [agents, setAgents] = useState([]);
@@ -256,6 +570,7 @@ export default function AdminAI() {
 
     const tabs = [
         { id: 'overview', name: 'Vista General', icon: Brain, description: 'Resumen del sistema de IA' },
+        { id: 'mcp-dashboard', name: 'MCP Dashboard', icon: Plug, description: 'Estado de todos los MCP Tools' },
         { id: 'diagnostic', name: 'Diagnóstico', icon: Activity, description: 'Estado del sistema' },
         { id: 'chat-config', name: 'Chat & Config', icon: MessageSquare, description: 'Configuración de chat' },
         { id: 'features', name: 'Funcionalidades', icon: Sparkles, description: 'Hub de IA' },
@@ -524,6 +839,11 @@ export default function AdminAI() {
                             </div>
                         </SectionCard>
                     </div>
+                )}
+
+                {/* MCP DASHBOARD TAB */}
+                {activeTab === 'mcp-dashboard' && (
+                    <McpDashboardTab />
                 )}
 
                 {/* DIAGNOSTIC TAB */}

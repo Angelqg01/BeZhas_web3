@@ -78,6 +78,7 @@ const CampaignsList = lazy(() => import('./pages/AdCenter/CampaignsList'));
 const AIChat = lazy(() => import('./pages/AIChat')); // NEW: AI Engine Chat
 const AdminAI = lazy(() => import('./pages/admin/AdminAI')); // NEW: AI Admin Panel
 const AdminAdsPage = lazy(() => import('./pages/admin/AdminAdsPage')); // NEW: Ads Admin Panel
+const AdminSDK = lazy(() => import('./pages/admin/AdminSDK')); // NEW: SDK & AI Management
 const LocalAIPage = lazy(() => import('./pages/LocalAIPage')); // NEW: Local AI Demo
 const MLDashboard = lazy(() => import('./pages/MLDashboard')); // NEW: Machine Learning Dashboard
 const AdminUsersPage = lazy(() => import('./pages/admin/AdminUsersPage')); // NEW: Admin User Management
@@ -427,6 +428,7 @@ export const router = createBrowserRouter(
                     { path: 'content', element: <Suspense fallback={<Spinner size="lg" />}><ContentManagementPage /></Suspense> },
                     { path: 'ads', element: <Suspense fallback={<Spinner size="lg" />}><AdminAdsPage /></Suspense> },
                     { path: 'ai', element: <Suspense fallback={<Spinner size="lg" />}><AdminAI /></Suspense> },
+                    { path: 'sdk', element: <Suspense fallback={<Spinner size="lg" />}><AdminSDK /></Suspense> },
                     { path: 'config', element: <Suspense fallback={<Spinner size="lg" />}><AdminConfigPage /></Suspense> },
                   ],
                 },

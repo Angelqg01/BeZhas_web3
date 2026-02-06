@@ -48,6 +48,7 @@ import { Link } from 'react-router-dom';
 import http from '../services/http';
 import toast from 'react-hot-toast';
 import { ethers } from 'ethers';
+import { useAccount } from 'wagmi';
 import StatCard from '../components/admin/StatCard';
 import UserCard from '../components/admin/UserCard';
 import ActivityCard from '../components/admin/ActivityCard';
@@ -80,6 +81,16 @@ export default function AdminDashboard() {
 
     // Admin authentication hook
     const { isAuthorized, isLoading: authLoading, userRole, roleLabel, permissions, roleColor, error: authError, hasPermission } = useAdminAuth();
+    const { address: connectedAddress } = useAccount();
+
+    // Helper: build config with wallet auth header for all admin API calls
+    const adminConfig = (extra = {}) => ({
+        ...extra,
+        headers: {
+            ...(extra.headers || {}),
+            ...(connectedAddress ? { 'x-wallet-address': connectedAddress } : {}),
+        },
+    });
 
     // Tab navigation state
     const [activeTab, setActiveTab] = useState('dashboard');
@@ -130,11 +141,23 @@ export default function AdminDashboard() {
     // Telemetría: evento de acceso al panel admin (DEBE estar en el nivel superior)
     useTelemetry('admin', 'dashboard_access');
 
-    // Fetch all data on mount
+    // Track whether auth has failed to prevent retry storms
+    const authFailedRef = React.useRef(false);
+    const fetchControllerRef = React.useRef(null);
+
+    // Fetch all data when connectedAddress is ready (prevents race condition)
     useEffect(() => {
+        // Don't fetch until wallet is connected - prevents 401 storm
+        if (!connectedAddress) return;
+        // Reset auth failure flag when wallet changes
+        authFailedRef.current = false;
         fetchAllData();
         initializeWeb3();
-    }, []);
+        // Cleanup: abort in-flight requests on unmount
+        return () => {
+            if (fetchControllerRef.current) fetchControllerRef.current.abort();
+        };
+    }, [connectedAddress]);
 
     // Initialize Web3 and contracts
     const initializeWeb3 = async () => {
@@ -154,9 +177,10 @@ export default function AdminDashboard() {
                 const tokenABI = { abi: appConfig.abis?.BezhasTokenABI || [] };
 
                 // Initialize BezhasToken contract
-                if (addresses.BezhasToken) {
+                const bezTokenAddr = addresses.BezhasTokenAddress || addresses.BezhasToken;
+                if (bezTokenAddr) {
                     const tokenContract = new ethers.Contract(
-                        addresses.BezhasToken,
+                        bezTokenAddr,
                         tokenABI.abi,
                         signer
                     );
@@ -216,16 +240,21 @@ export default function AdminDashboard() {
     const mockToastShownRef = React.useRef(false);
 
     const fetchAllData = async () => {
+        // Circuit breaker: don't re-fetch if auth already failed
+        if (authFailedRef.current) return;
+
         try {
             setLoading(true);
             setError(null);
 
-            // Headers are attached by http interceptor, but allow override if needed
-            const adminToken = localStorage.getItem('adminToken');
-            const config = {
-                headers: adminToken ? { Authorization: `Bearer ${adminToken}` } : {},
-                params: {}
-            };
+            const config = adminConfig();
+
+            // If no wallet connected, skip API calls entirely
+            if (!connectedAddress && !localStorage.getItem('adminWalletAddress')) {
+                setError('Conecta tu wallet de admin para cargar el dashboard');
+                setLoading(false);
+                return;
+            }
 
             try {
                 const [statsRes, usersRes, activityRes, analyticsRes, timelineRes, healthRes, logsRes] = await Promise.all([
@@ -246,6 +275,14 @@ export default function AdminDashboard() {
                 setSystemHealth(healthRes.data);
                 setLogs(logsRes.data?.logs || []);
             } catch (apiError) {
+                // 401/403 = auth problem → stop retrying to prevent storm
+                const status = apiError?.response?.status;
+                if (status === 401 || status === 403) {
+                    authFailedRef.current = true;
+                    setError('No autorizado. Verifica que tu wallet esté conectada y tenga permisos de admin.');
+                    return; // Don't fallback to mock on auth errors
+                }
+
                 // Fallback solo en modo mock
                 if (USE_MOCK) {
                     console.warn('Backend no disponible, usando datos de demostración:', apiError.message);
@@ -324,13 +361,13 @@ export default function AdminDashboard() {
 
     const fetchAllUsers = async () => {
         try {
-            const config = {
+            const config = adminConfig({
                 params: {
                     page: usersPagination.page,
                     limit: usersPagination.limit,
                     ...userFilters
                 }
-            };
+            });
 
             const response = await http.get(`/api/admin/v1/users`, config);
             setAllUsers(response.data.users || []);
@@ -348,7 +385,8 @@ export default function AdminDashboard() {
         try {
             await http.post(
                 `/api/admin/v1/users/${userId}/${action}`,
-                {}
+                {},
+                adminConfig()
             );
 
             // Telemetría: acción admin sobre usuario
@@ -371,7 +409,8 @@ export default function AdminDashboard() {
         try {
             await http.post(
                 `/api/admin/v1/users/bulk`,
-                { userIds: selectedUsers, action }
+                { userIds: selectedUsers, action },
+                adminConfig()
             );
 
             toast.success(`Acción ${action} aplicada a ${selectedUsers.length} usuarios`);

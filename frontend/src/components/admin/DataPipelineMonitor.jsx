@@ -318,7 +318,7 @@ export default function DataPipelineMonitor() {
                                 </div>
                                 <div>
                                     <div className="text-xs text-gray-400">Schedule</div>
-                                    <div className="text-sm font-mono text-white">{pipeline.schedule}</div>
+                                    <div className="text-sm font-mono text-white">{pipeline.schedule || '-'}</div>
                                 </div>
                             </div>
                             {pipeline.error && (
@@ -345,7 +345,7 @@ export default function DataPipelineMonitor() {
                         <div className="text-sm text-gray-400">Overall Quality Score</div>
                     </div>
                     <div className="space-y-3">
-                        {dataQuality?.dimensions.map((dim, idx) => (
+                        {(dataQuality?.dimensions || []).map((dim, idx) => (
                             <div key={idx} className="flex items-center justify-between">
                                 <span className="text-sm text-gray-400">{dim.name}</span>
                                 <div className="flex items-center gap-3">
@@ -363,7 +363,7 @@ export default function DataPipelineMonitor() {
                     </div>
                     <div className="mt-6">
                         <ResponsiveContainer width="100%" height={150}>
-                            <LineChart data={dataQuality?.trend}>
+                            <LineChart data={dataQuality?.trend || []}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                                 <XAxis dataKey="date" stroke="#9ca3af" />
                                 <YAxis stroke="#9ca3af" domain={[85, 100]} />

@@ -246,7 +246,7 @@ export default function ContentIntelligencePanel() {
                     <Hash className="mb-2" size={24} />
                     <div className="text-3xl font-bold">{autoTags.length}</div>
                     <div className="text-pink-100 text-sm">Auto-Tags Detectados</div>
-                    <div className="mt-2 text-xs text-pink-200">{autoTags[0]?.confidence * 100 || 0}% confianza</div>
+                    <div className="mt-2 text-xs text-pink-200">{((autoTags[0]?.confidence ?? autoTags[0]?.accuracy / 100) * 100 || 0).toFixed(0)}% confianza</div>
                 </div>
 
                 <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-6 text-white">
@@ -297,36 +297,40 @@ export default function ContentIntelligencePanel() {
                     </h3>
                     {viralityAnalysis && (
                         <>
-                            <div className="mb-4 p-4 bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-lg border border-purple-500/30">
-                                <div className="text-sm text-gray-400 mb-1">Top Post Viral</div>
-                                <div className="text-white font-semibold mb-2">{viralityAnalysis.topViralPost.title}</div>
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div>
-                                        <div className="text-2xl font-bold text-white">{viralityAnalysis.topViralPost.shares.toLocaleString()}</div>
-                                        <div className="text-xs text-gray-400">Shares</div>
-                                    </div>
-                                    <div>
-                                        <div className="text-2xl font-bold text-white">{(viralityAnalysis.topViralPost.views / 1000).toFixed(1)}K</div>
-                                        <div className="text-xs text-gray-400">Views</div>
-                                    </div>
-                                    <div>
-                                        <div className="text-2xl font-bold text-white">{viralityAnalysis.topViralPost.engagement}%</div>
-                                        <div className="text-xs text-gray-400">Engagement</div>
+                            {viralityAnalysis.topViralPost && (
+                                <div className="mb-4 p-4 bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-lg border border-purple-500/30">
+                                    <div className="text-sm text-gray-400 mb-1">Top Post Viral</div>
+                                    <div className="text-white font-semibold mb-2">{viralityAnalysis.topViralPost?.title || 'Sin título'}</div>
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div>
+                                            <div className="text-2xl font-bold text-white">{(viralityAnalysis.topViralPost?.shares || 0).toLocaleString()}</div>
+                                            <div className="text-xs text-gray-400">Shares</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-2xl font-bold text-white">{((viralityAnalysis.topViralPost?.views || 0) / 1000).toFixed(1)}K</div>
+                                            <div className="text-xs text-gray-400">Views</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-2xl font-bold text-white">{viralityAnalysis.topViralPost?.engagement || 0}%</div>
+                                            <div className="text-xs text-gray-400">Engagement</div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <ResponsiveContainer width="100%" height={200}>
-                                <BarChart data={viralityAnalysis.distribution}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                                    <XAxis dataKey="range" stroke="#9ca3af" />
-                                    <YAxis stroke="#9ca3af" />
-                                    <Tooltip
-                                        contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151' }}
-                                        labelStyle={{ color: '#fff' }}
-                                    />
-                                    <Bar dataKey="count" fill="#8b5cf6" radius={[8, 8, 0, 0]} />
-                                </BarChart>
-                            </ResponsiveContainer>
+                            )}
+                            {viralityAnalysis.distribution?.length > 0 && (
+                                <ResponsiveContainer width="100%" height={200}>
+                                    <BarChart data={viralityAnalysis.distribution}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                                        <XAxis dataKey="range" stroke="#9ca3af" />
+                                        <YAxis stroke="#9ca3af" />
+                                        <Tooltip
+                                            contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151' }}
+                                            labelStyle={{ color: '#fff' }}
+                                        />
+                                        <Bar dataKey="count" fill="#8b5cf6" radius={[8, 8, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            )}
                         </>
                     )}
                 </div>
@@ -374,17 +378,17 @@ export default function ContentIntelligencePanel() {
                                         }`}>
                                         {tag.tag}
                                     </div>
-                                    <div className="text-sm text-gray-400">{tag.frequency} usos</div>
+                                    <div className="text-sm text-gray-400">{(tag.frequency || tag.count || 0).toLocaleString()} usos</div>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <div className="w-24 bg-gray-700 rounded-full h-2">
                                         <div
                                             className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full"
-                                            style={{ width: `${tag.confidence * 100}%` }}
+                                            style={{ width: `${(tag.confidence ?? (tag.accuracy ? tag.accuracy / 100 : 0)) * 100}%` }}
                                         />
                                     </div>
                                     <div className="text-xs text-gray-400 w-12 text-right">
-                                        {(tag.confidence * 100).toFixed(0)}%
+                                        {((tag.confidence ?? (tag.accuracy ? tag.accuracy / 100 : 0)) * 100).toFixed(0)}%
                                     </div>
                                 </div>
                             </div>

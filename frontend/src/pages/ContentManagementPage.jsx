@@ -1,17 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import http from '../services/http';
 import { Trash2, Flag, CheckCircle, XCircle } from 'lucide-react';
-
-const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 export default function ContentManagementPage() {
     const [posts, setPosts] = useState([]);
     const [groups, setGroups] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('posts');
-
-    // Get admin token from localStorage
-    const adminToken = localStorage.getItem('adminToken');
 
     useEffect(() => {
         fetchContent();
@@ -21,11 +16,11 @@ export default function ContentManagementPage() {
         setLoading(true);
         try {
             // Fetch posts from feed
-            const postsRes = await axios.get(`${API_URL}/feed`);
+            const postsRes = await http.get('/api/feed');
             setPosts(postsRes.data || []);
 
             // Fetch groups
-            const groupsRes = await axios.get(`${API_URL}/groups`);
+            const groupsRes = await http.get('/api/groups');
             setGroups(groupsRes.data || []);
         } catch (err) {
             console.error('Error fetching content:', err);
@@ -37,9 +32,7 @@ export default function ContentManagementPage() {
     async function deletePost(postId) {
         if (!window.confirm('¿Seguro que deseas eliminar este post?')) return;
         try {
-            await axios.delete(`${API_URL}/feed/${postId}`, {
-                headers: { Authorization: `Bearer ${adminToken}` }
-            });
+            await http.delete(`/api/feed/${postId}`);
             setPosts(prev => prev.filter(p => p._id !== postId));
         } catch (err) {
             alert('Error al eliminar post');
@@ -48,10 +41,7 @@ export default function ContentManagementPage() {
 
     async function togglePostStatus(postId, hidden) {
         try {
-            await axios.patch(`${API_URL}/feed/${postId}`,
-                { hidden: !hidden },
-                { headers: { Authorization: `Bearer ${adminToken}` } }
-            );
+            await http.patch(`/api/feed/${postId}`, { hidden: !hidden });
             setPosts(prev => prev.map(p => p._id === postId ? { ...p, hidden: !hidden } : p));
         } catch (err) {
             alert('Error al cambiar estado del post');

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
-import { Shield, Users, FileText, LayoutDashboard, Settings, RefreshCw, Menu, X, Megaphone, Cpu } from 'lucide-react';
+import { Shield, Users, FileText, LayoutDashboard, Settings, RefreshCw, Menu, X, Megaphone, Cpu, Blocks } from 'lucide-react';
 import { LOGOS } from '../config/cryptoLogos';
 import { useHideRightSidebar } from '../hooks/useHideRightSidebar';
 
@@ -95,6 +95,14 @@ export default function AdminLayout() {
                     >
                         <Cpu size={20} />
                         {!collapsed && 'AI Engine'}
+                    </NavLink>
+                    <NavLink
+                        to="/admin/sdk"
+                        className={({ isActive }) => `flex items-center gap-2 rounded-lg transition-all ${collapsed ? 'justify-center p-3' : 'px-4 py-2'} ${isActive ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
+                        title={collapsed ? 'SDK & AI' : undefined}
+                    >
+                        <Blocks size={20} />
+                        {!collapsed && 'SDK & AI'}
                     </NavLink>
                     {/* Logos de criptomonedas y BEZ-Coin */}
                     <div className={`border-t border-gray-700 pt-4 flex flex-col gap-2 ${collapsed ? 'mt-4' : 'mt-8'}`}>

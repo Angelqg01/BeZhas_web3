@@ -6,12 +6,13 @@ import toast from 'react-hot-toast';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
-// Lista de wallets admin autorizadas (hardcoded para desarrollo)
+// Lista de wallets admin autorizadas (Equipo Fundador y Asesores - Polygon)
+// Ref: PLATFORM_PAGES.md → Wallets Autorizadas para Admin
 const ADMIN_WALLETS = [
-  '0x3EfC42095E8503d41Ad8001328FC23388E00e8a3', // Safe Wallet Principal
-  '0x52Df82920CBAE522880dD7657e43d1A754eD044E', // Admin wallet
-  '0x1234567890123456789012345678901234567890',
-  '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', // Hardhat default
+  '0x52Df82920CBAE522880dD7657e43d1A754eD044E', // Super Admin - Wallet principal equipo fundador
+  '0x3EfC42095E8503d41Ad8001328FC23388E00e8a3', // Super Admin - BeZhas Wallet 1
+  '0x89c23890c742d710265dd61be789c71dc8999b12', // Treasury - Tesorería y Desarrollo DAO
+  '0xc0ec3b1fcb7dc0c764371919837c13b58cdc330a', // Community - Fondo de Comunidad/Recompensas
 ].map(addr => addr.toLowerCase());
 
 /**
@@ -50,14 +51,15 @@ const AdminRoute = () => {
       if (ADMIN_WALLETS.includes(addressLower)) {
         console.log('✅ AdminRoute: Wallet is in admin list', address);
         localStorage.setItem('isAdmin', 'true');
+        localStorage.setItem('adminWalletAddress', address);
         setIsAdmin(true);
         setIsLoading(false);
         return;
       }
 
-      // OPCIÓN 3: Try backend API
+      // OPCIÓN 3: Try backend API (verify-permissions endpoint)
       try {
-        const response = await fetch(`${API_URL}/auth/me`, {
+        const response = await fetch(`${API_URL}/admin/verify-permissions`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -67,28 +69,34 @@ const AdminRoute = () => {
 
         if (response.ok) {
           const data = await response.json();
-          const userRole = data.user?.role;
 
-          // Verificar si el rol es ADMIN, MODERATOR o DEVELOPER
-          const hasAdminAccess = ['ADMIN', 'MODERATOR', 'DEVELOPER'].includes(userRole);
+          // verify-permissions returns { authorized, role, permissions, ... }
+          if (data.authorized) {
+            const hasAdminAccess = ['SUPER_ADMIN', 'ADMIN', 'DEVELOPER', 'TREASURY', 'DAO', 'COMMUNITY'].includes(data.role);
 
-          console.log('✅ AdminRoute: Backend verification', { role: userRole, hasAccess: hasAdminAccess });
-          setIsAdmin(hasAdminAccess);
+            console.log('✅ AdminRoute: Backend verification', { role: data.role, hasAccess: hasAdminAccess });
+            setIsAdmin(hasAdminAccess);
 
-          if (hasAdminAccess) {
-            localStorage.setItem('isAdmin', 'true');
+            if (hasAdminAccess) {
+              localStorage.setItem('isAdmin', 'true');
+              localStorage.setItem('adminWalletAddress', address);
+            } else {
+              toast.error('Acceso denegado. Se requieren permisos de administrador.');
+            }
           } else {
+            console.log('⚠️ AdminRoute: Not authorized by backend');
+            setIsAdmin(false);
             toast.error('Acceso denegado. Se requieren permisos de administrador.');
           }
         } else {
-          console.log('⚠️ AdminRoute: Backend not available, denying access');
+          console.log('⚠️ AdminRoute: Backend returned error', response.status);
           setIsAdmin(false);
-          toast.error('Backend no disponible. Usa el token demo para acceder.');
+          toast.error('No se pudo verificar permisos. Intenta de nuevo.');
         }
       } catch (error) {
-        console.error('⚠️ AdminRoute: Backend error, denying access', error);
+        console.error('⚠️ AdminRoute: Backend error', error);
         setIsAdmin(false);
-        toast.error('Backend no disponible. Usa: localStorage.setItem("adminToken", "demo-admin-token-123")');
+        toast.error('Error de conexión al verificar permisos de admin.');
       } finally {
         setIsLoading(false);
       }

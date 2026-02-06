@@ -233,14 +233,15 @@ export default function ABTestingPanel() {
     };
 
     const calculateLift = (control, variant) => {
+        if (!control || control === 0) return '0.0';
         const lift = ((variant - control) / control) * 100;
         return lift.toFixed(1);
     };
 
     const ExperimentCard = ({ exp }) => {
-        const control = exp.variants[0];
-        const variant = exp.variants[1] || exp.variants[0];
-        const lift = calculateLift(control.conversionRate, variant.conversionRate);
+        const control = exp.variants?.[0] || { conversionRate: 0, users: 0, traffic: 0, avgEngagement: 0, revenue: 0, name: 'Control' };
+        const variant = exp.variants?.[1] || control;
+        const lift = calculateLift(control.conversionRate || 0, variant.conversionRate || 0);
 
         return (
             <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 p-6 hover:border-gray-600 transition-all">
@@ -285,19 +286,19 @@ export default function ABTestingPanel() {
                             <div className="grid grid-cols-4 gap-2 text-center">
                                 <div>
                                     <div className="text-xs text-gray-400">Usuarios</div>
-                                    <div className="text-sm font-bold text-white">{variant.users.toLocaleString()}</div>
+                                    <div className="text-sm font-bold text-white">{(variant.users || 0).toLocaleString()}</div>
                                 </div>
                                 <div>
                                     <div className="text-xs text-gray-400">Conv. Rate</div>
-                                    <div className="text-sm font-bold text-white">{variant.conversionRate}%</div>
+                                    <div className="text-sm font-bold text-white">{variant.conversionRate || 0}%</div>
                                 </div>
                                 <div>
                                     <div className="text-xs text-gray-400">Engagement</div>
-                                    <div className="text-sm font-bold text-white">{variant.avgEngagement}</div>
+                                    <div className="text-sm font-bold text-white">{variant.avgEngagement || 0}</div>
                                 </div>
                                 <div>
                                     <div className="text-xs text-gray-400">Revenue</div>
-                                    <div className="text-sm font-bold text-white">${(variant.revenue / 1000).toFixed(1)}K</div>
+                                    <div className="text-sm font-bold text-white">${((variant.revenue || 0) / 1000).toFixed(1)}K</div>
                                 </div>
                             </div>
                         </div>
@@ -465,10 +466,10 @@ export default function ABTestingPanel() {
                                         Rollout: <span className="text-white font-semibold">{flag.rollout}%</span>
                                     </span>
                                     <span className="text-gray-500">
-                                        Usuarios: <span className="text-white font-semibold">{flag.affectedUsers.toLocaleString()}</span>
+                                        Usuarios: <span className="text-white font-semibold">{(flag.affectedUsers || 0).toLocaleString()}</span>
                                     </span>
                                     <div className="flex gap-1">
-                                        {flag.conditions.map((cond, idx) => (
+                                        {(flag.conditions || []).map((cond, idx) => (
                                             <span key={idx} className="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded text-xs">
                                                 {cond}
                                             </span>
@@ -512,7 +513,7 @@ export default function ABTestingPanel() {
                             </button>
                         </div>
 
-                        {selectedExperiment.timeline.length > 0 && (
+                        {selectedExperiment.timeline?.length > 0 && (
                             <div className="mb-6">
                                 <h4 className="text-lg font-semibold text-white mb-3">Evolución Temporal</h4>
                                 <ResponsiveContainer width="100%" height={300}>
@@ -527,10 +528,10 @@ export default function ABTestingPanel() {
                                         <Legend />
                                         <Line type="monotone" dataKey="control" stroke="#6b7280" strokeWidth={2} name="Control" />
                                         <Line type="monotone" dataKey="variant" stroke="#10b981" strokeWidth={2} name="Variant A" />
-                                        {selectedExperiment.timeline[0].green && (
+                                        {selectedExperiment.timeline?.[0]?.green && (
                                             <Line type="monotone" dataKey="green" stroke="#3b82f6" strokeWidth={2} name="Green" />
                                         )}
-                                        {selectedExperiment.timeline[0].purple && (
+                                        {selectedExperiment.timeline?.[0]?.purple && (
                                             <Line type="monotone" dataKey="purple" stroke="#8b5cf6" strokeWidth={2} name="Purple" />
                                         )}
                                     </LineChart>

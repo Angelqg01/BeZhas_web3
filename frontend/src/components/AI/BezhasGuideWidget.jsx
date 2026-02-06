@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
-import axios from 'axios';
+import http from '../../services/http';
 
 const BezhasGuideWidget = ({ currentUser }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -65,9 +65,7 @@ const BezhasGuideWidget = ({ currentUser }) => {
         setIsLoading(true);
 
         try {
-            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-
-            const response = await axios.post(`${apiUrl}/api/ai/guide-chat`, {
+            const response = await http.post('/api/ai/guide-chat', {
                 message: userMsg.text,
                 userRole: currentUser?.role || 'user',
                 pageContext: location.pathname
@@ -89,7 +87,7 @@ const BezhasGuideWidget = ({ currentUser }) => {
                 ? "⏱️ Timeout: El servidor tardó demasiado en responder. Intenta de nuevo."
                 : error.response?.status === 404
                     ? "⚠️ Endpoint no encontrado. Verifica que el backend esté actualizado."
-                    : "⚠️ Error de conexión con el núcleo de Bezhas. Verifica que el backend esté corriendo en http://localhost:3001";
+                    : "⚠️ Error de conexión con el servicio de IA. Intenta de nuevo en unos segundos.";
 
             setMessages(prev => [...prev, {
                 sender: 'ai',

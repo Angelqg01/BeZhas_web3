@@ -21,13 +21,20 @@ const http = axios.create({
   withCredentials: false
 });
 
-// Request interceptor: attach JWT if present
+// Request interceptor: attach JWT and wallet address if present
 http.interceptors.request.use((config) => {
   try {
+    config.headers = config.headers || {};
     const token = localStorage.getItem('bezhas-jwt');
     if (token) {
-      config.headers = config.headers || {};
       config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    // Attach wallet address for admin API routes (wallet-based auth)
+    if (!config.headers['x-wallet-address']) {
+      const walletAddr = localStorage.getItem('adminWalletAddress');
+      if (walletAddr) {
+        config.headers['x-wallet-address'] = walletAddr;
+      }
     }
   } catch (_) { }
   return config;
@@ -55,9 +62,14 @@ http.interceptors.response.use(
         // Reset flag after 5 seconds
         setTimeout(() => { window.__auth_401_logged = false; }, 5000);
       }
-      try {
-        localStorage.removeItem('bezhas-jwt');
-      } catch (_) { }
+      // Only clear JWT for explicit auth endpoints, NOT for admin API calls
+      // (admin routes use wallet-based auth; clearing JWT causes cascade failures)
+      const isAuthEndpoint = url.includes('/auth/') || url.includes('/login') || url.includes('/verify-token');
+      if (isAuthEndpoint) {
+        try {
+          localStorage.removeItem('bezhas-jwt');
+        } catch (_) { }
+      }
     }
 
     return Promise.reject(error);

@@ -322,6 +322,17 @@ const corsOptions = {
         }
     },
     credentials: true,
+    allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'x-wallet-address',
+        'x-api-key',
+        'x-request-id',
+        'X-Requested-With',
+        'Accept',
+        'Origin'
+    ],
+    exposedHeaders: ['x-request-id'],
     optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
@@ -558,69 +569,8 @@ console.log('📦 healthRoutes loaded');
 // Public health check (no auth required)
 app.use('/health', healthRoutes);
 
-// Public config endpoint (no auth required) - Returns contract addresses and ABIs
-app.get('/api/config', (req, res) => {
-    try {
-        const config = require('./config.json');
-        const fs = require('fs');
-        const path = require('path');
-
-        // Load ABIs from artifacts directory (works in Docker and locally)
-        // Docker: /artifacts/contracts
-        // Local: ../artifacts/contracts
-        const dockerArtifactsPath = '/artifacts/contracts';
-        const localArtifactsPath = path.join(__dirname, '../artifacts/contracts');
-        const artifactsPath = fs.existsSync(dockerArtifactsPath) ? dockerArtifactsPath : localArtifactsPath;
-
-        console.log(`📂 Using artifacts path: ${artifactsPath}`);
-
-        const abis = {};
-
-        // Map ABI keys to Hardhat artifact paths (ContractName.sol/ContractName.json)
-        const abiFiles = {
-            UserProfileABI: 'UserProfile.sol/UserProfile.json',
-            BezhasNFTABI: 'BezhasNFT.sol/BezhasNFT.json',
-            MarketplaceABI: 'Marketplace.sol/Marketplace.json',
-            AdvancedMarketplaceABI: 'BeZhasMarketplace.sol/BeZhasMarketplace.json',
-            StakingPoolABI: 'StakingPool.sol/StakingPool.json',
-            BezhasTokenABI: 'BezhasToken.sol/BezhasToken.json',
-            PostABI: 'Post.sol/Post.json',
-            TokenSaleABI: 'TokenSale.sol/TokenSale.json',
-            MessagesABI: 'Messages.sol/Messages.json',
-            BezhasBridgeABI: 'CrossChainBridge.sol/CrossChainBridge.json',
-            BeZhasMarketplaceABI: 'BeZhasMarketplace.sol/BeZhasMarketplace.json'
-        };
-
-        Object.entries(abiFiles).forEach(([key, relativePath]) => {
-            try {
-                const abiFilePath = path.join(artifactsPath, relativePath);
-                if (fs.existsSync(abiFilePath)) {
-                    const abiData = JSON.parse(fs.readFileSync(abiFilePath, 'utf8'));
-                    // Extract ABI from artifact (it's usually nested in .abi property)
-                    abis[key] = abiData.abi || abiData;
-                    console.log(`✅ Loaded ABI: ${key}`);
-                } else {
-                    console.warn(`⚠️ ABI file not found: ${relativePath}`);
-                }
-            } catch (error) {
-                console.error(`❌ Error loading ABI ${relativePath}:`, error.message);
-            }
-        });
-
-        res.json({
-            chainId: config.chainId || "31337",
-            contractAddresses: config.contractAddresses || {},
-            abis: abis
-        });
-    } catch (error) {
-        console.error('Error loading config:', error);
-        res.json({
-            chainId: "31337",
-            contractAddresses: {},
-            abis: {}
-        });
-    }
-});
+// NOTE: Public config endpoint moved to line ~1141 (combined version with ABIs + rate limiter).
+// The duplicate was removed to prevent Express route shadowing.
 
 // ============================================================================
 // SECURITY IMPLEMENTATION (Nonce & JWT)
@@ -842,6 +792,7 @@ app.use('/api/admin/users', adminUsersRoutes);
 app.use('/api/admin/dependencies', adminDependenciesRoutes);
 app.use('/api/admin/rate-limit', adminRateLimitRoutes);
 app.use('/api/admin', require('./routes/admin.auth.routes')); // Admin auth verification
+app.use('/api/admin/sdk', require('./routes/sdkAdmin.routes')); // SDK & AI Admin Management
 // app.use('/api/plugins', require('./routes/pluginRoutes')); // Plugin Management System - Temporarily disabled (Prisma dependency issue)
 app.use('/api/contacts', contactRoutes);
 app.use('/api/marketplace', marketplaceRoutes);
@@ -869,6 +820,11 @@ app.use('/api/defi', require('./routes/deFi.routes')); // DeFi integration route
 app.use('/api/logistics', logisticsRoutes); // Logistics Routes (Re-enabled)
 app.use('/api/v1/bridge', bridgeRoutes); // BeZhas Universal Bridge API
 app.use('/api/v1/bridge/admin', bridgeAdminRoutes); // Bridge API Keys Management
+
+// ============================================
+// AI Gateway → MCP Intelligence Server
+// ============================================
+app.use('/api/ai-gateway', require('./routes/aiGateway.routes'));
 
 // ============================================
 // Enhanced Universal Bridge System (Adapters)

@@ -300,7 +300,7 @@ export default function ModelTrainingHub() {
                                     <h3 className="text-lg font-bold text-white mb-1">{job.modelName}</h3>
                                     <div className="flex items-center gap-2">
                                         <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(job.status)}`}>
-                                            {job.status.toUpperCase()}
+                                            {(job.status || 'unknown').toUpperCase()}
                                         </span>
                                         {job.status === 'running' && (
                                             <span className="text-sm text-gray-400">
@@ -352,19 +352,19 @@ export default function ModelTrainingHub() {
                                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                                         <div className="p-3 bg-gray-700/50 rounded-lg">
                                             <div className="text-xs text-gray-400 mb-1">Accuracy</div>
-                                            <div className="text-xl font-bold text-white">{job.metrics.accuracy}%</div>
+                                            <div className="text-xl font-bold text-white">{job.metrics?.accuracy ?? '-'}%</div>
                                         </div>
                                         <div className="p-3 bg-gray-700/50 rounded-lg">
                                             <div className="text-xs text-gray-400 mb-1">Loss</div>
-                                            <div className="text-xl font-bold text-white">{job.metrics.loss}</div>
+                                            <div className="text-xl font-bold text-white">{job.metrics?.loss ?? '-'}</div>
                                         </div>
                                         <div className="p-3 bg-gray-700/50 rounded-lg">
                                             <div className="text-xs text-gray-400 mb-1">Val Accuracy</div>
-                                            <div className="text-xl font-bold text-white">{job.metrics.valAccuracy}%</div>
+                                            <div className="text-xl font-bold text-white">{job.metrics?.valAccuracy ?? '-'}%</div>
                                         </div>
                                         <div className="p-3 bg-gray-700/50 rounded-lg">
                                             <div className="text-xs text-gray-400 mb-1">Val Loss</div>
-                                            <div className="text-xl font-bold text-white">{job.metrics.valLoss}</div>
+                                            <div className="text-xl font-bold text-white">{job.metrics?.valLoss ?? '-'}</div>
                                         </div>
                                     </div>
                                 </>
@@ -373,7 +373,7 @@ export default function ModelTrainingHub() {
                             <div className="bg-gray-700/30 rounded-lg p-4">
                                 <div className="text-sm font-semibold text-white mb-2">Hyperparameters</div>
                                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                                    {Object.entries(job.hyperparameters).map(([key, value]) => (
+                                    {Object.entries(job.hyperparameters || {}).map(([key, value]) => (
                                         <div key={key} className="flex items-center justify-between">
                                             <span className="text-xs text-gray-400">{key}:</span>
                                             <span className="text-xs font-mono text-white">{value}</span>
@@ -419,7 +419,7 @@ export default function ModelTrainingHub() {
                                     </h3>
                                     <div className="flex items-center gap-2">
                                         <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(model.status)}`}>
-                                            {model.status.toUpperCase()}
+                                            {(model.status || 'unknown').toUpperCase()}
                                         </span>
                                         <span className="text-xs text-gray-400">{model.type}</span>
                                     </div>
@@ -524,7 +524,7 @@ export default function ModelTrainingHub() {
                         <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
                             <div className="text-sm text-blue-400 font-semibold mb-1">💡 Recomendación</div>
                             <div className="text-white">
-                                Basado en la comparación, <span className="font-bold">{comparisonData.models.sort((a, b) => b.f1Score - a.f1Score)[0].name}</span> muestra el mejor balance entre precisión y recall.
+                                Basado en la comparación, <span className="font-bold">{[...comparisonData.models].sort((a, b) => (b.f1Score || 0) - (a.f1Score || 0))[0]?.name || 'N/A'}</span> muestra el mejor balance entre precisión y recall.
                             </div>
                         </div>
                     </div>
