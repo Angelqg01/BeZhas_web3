@@ -59,6 +59,8 @@ docker-compose*.yml
 Dockerfile
 !backend/Dockerfile.gcp
 !frontend/Dockerfile.gcp
+!packages/mcp-server/Dockerfile
+!packages/mcp-server/.dockerignore
 
 # Scripts not needed for build
 *.ps1
@@ -69,4 +71,4 @@ scripts/
 # Miscellaneous
 *.zip
 *.tar.gz
-*.tgz
+# Note: pnpm-lock.yaml is needed for MCP server build
