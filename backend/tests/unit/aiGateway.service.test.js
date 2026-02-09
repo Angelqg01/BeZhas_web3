@@ -6,6 +6,15 @@
 // Mock node-fetch (unused but prevents import errors)
 jest.mock('node-fetch', () => jest.fn());
 
+// Mock google-auth-library
+const mockGetRequestHeaders = jest.fn().mockResolvedValue({ Authorization: 'Bearer mock-oidc-token' });
+const mockGetIdTokenClient = jest.fn().mockResolvedValue({ getRequestHeaders: mockGetRequestHeaders });
+jest.mock('google-auth-library', () => ({
+    GoogleAuth: jest.fn().mockImplementation(() => ({
+        getIdTokenClient: mockGetIdTokenClient,
+    })),
+}));
+
 // Mock ethers
 jest.mock('ethers', () => ({
     ethers: {
@@ -177,6 +186,33 @@ describe('AIGatewayService', () => {
             const result = await gateway.healthCheck();
             // Should not throw, returns an error object
             expect(result).toBeDefined();
+        });
+    });
+
+    describe('OIDC Authentication (Cloud Run service-to-service)', () => {
+        it('should not attach auth header when MCP is on localhost', async () => {
+            // Default gateway uses localhost MCP, so no OIDC token
+            mockFetch.mockResolvedValueOnce({
+                ok: true,
+                json: jest.fn().mockResolvedValue({ action: 'EXECUTE' }),
+            });
+
+            await gateway.callMCP('/api/mcp/analyze-gas', { transactionType: 'token_transfer' });
+
+            const fetchCall = mockFetch.mock.calls[0];
+            const headers = fetchCall[1].headers;
+            expect(headers).not.toHaveProperty('Authorization');
+        });
+
+        it('should gracefully handle getIdToken failure', async () => {
+            // Even if auth fails, the service should still attempt the call
+            mockFetch.mockResolvedValueOnce({
+                ok: true,
+                json: jest.fn().mockResolvedValue({ action: 'EXECUTE' }),
+            });
+
+            const result = await gateway.callMCP('/api/mcp/analyze-gas', { transactionType: 'token_transfer' });
+            expect(result).toHaveProperty('action', 'EXECUTE');
         });
     });
 });

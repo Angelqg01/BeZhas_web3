@@ -1,10 +1,10 @@
 /**
  * BeZhas Intelligence - Tool Registry
  * 
- * Registers all 13 MCP tools on the server instance.
+ * Registers all MCP tools on the server instance.
  * Master List: Polygon MCP, Balance MCP, Compliance, GitHub, Firecrawl,
  * Playwright, Blockscout, Skill Creator, Auditmos, Tally DAO,
- * Obliq SRE, Kinaxis, Alpaca Markets.
+ * Obliq SRE, Kinaxis, Alpaca Markets, Payment Tools (5 new).
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
@@ -13,7 +13,7 @@ import { registerGasStrategy } from './analyzeGasStrategy.js';
 import { registerSmartSwap } from './calculateSmartSwap.js';
 import { registerCompliance } from './verifyRegulatoryCompliance.js';
 
-// ─── Extended MCP Tools (10 new) ──────────────────────────
+// ─── Extended MCP Tools (10 existing) ──────────────────────────
 import { registerGitHubMcp } from './githubMcp.js';
 import { registerFirecrawlMcp } from './firecrawlMcp.js';
 import { registerPlaywrightMcp } from './playwrightMcp.js';
@@ -24,6 +24,9 @@ import { registerTallyDaoMcp } from './tallyDaoMcp.js';
 import { registerObliqAiSre } from './obliqAiSre.js';
 import { registerKinaxisMcp } from './kinaxisMcp.js';
 import { registerAlpacaMarketsMcp } from './alpacaMarketsMcp.js';
+
+// ─── Payment Tools (5 new) ──────────────────────────────────
+import { registerPaymentTools } from './payment-tools.js';
 
 export function registerTools(server: McpServer): void {
     // Core
@@ -42,4 +45,7 @@ export function registerTools(server: McpServer): void {
     registerObliqAiSre(server);
     registerKinaxisMcp(server);
     registerAlpacaMarketsMcp(server);
+
+    // Payment Tools
+    registerPaymentTools(server);
 }

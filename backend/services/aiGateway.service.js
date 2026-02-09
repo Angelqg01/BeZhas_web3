@@ -13,6 +13,7 @@
  */
 
 const { ethers } = require('ethers');
+const { GoogleAuth } = require('google-auth-library');
 const pino = require('pino');
 
 const logger = pino({ name: 'AIGateway' });
@@ -22,6 +23,29 @@ const MCP_SERVER_URL = process.env.MCP_SERVER_URL || 'http://localhost:8080';
 const BEZ_CONTRACT = '0xEcBa873B534C54DE2B62acDE232ADCa4369f11A8';
 const RPC_URL = process.env.POLYGON_RPC_URL || process.env.RPC_URL || 'https://rpc-amoy.polygon.technology';
 const RELAYER_KEY = process.env.RELAYER_PRIVATE_KEY || '';
+
+// Cloud Run service-to-service authentication
+const IS_CLOUD_RUN = !MCP_SERVER_URL.includes('localhost') && !MCP_SERVER_URL.includes('127.0.0.1');
+let _authClient = null;
+
+/**
+ * Get an OIDC token for Cloud Run service-to-service calls.
+ * Returns null in local development (localhost MCP).
+ */
+async function getIdToken() {
+    if (!IS_CLOUD_RUN) return null;
+    try {
+        if (!_authClient) {
+            const auth = new GoogleAuth();
+            _authClient = await auth.getIdTokenClient(MCP_SERVER_URL);
+        }
+        const headers = await _authClient.getRequestHeaders();
+        return headers.Authorization || null;
+    } catch (error) {
+        logger.error({ err: error }, '⚠️ Failed to get OIDC token for MCP');
+        return null;
+    }
+}
 
 const TOKEN_ABI = [
     'function transfer(address to, uint256 amount) returns (bool)',
@@ -79,9 +103,17 @@ class AIGatewayService {
         logger.info({ endpoint, params }, '📡 Calling MCP Intelligence Server');
 
         try {
+            const headers = { 'Content-Type': 'application/json' };
+
+            // Attach OIDC token for Cloud Run service-to-service auth
+            const authToken = await getIdToken();
+            if (authToken) {
+                headers['Authorization'] = authToken;
+            }
+
             const response = await fetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify(params),
                 signal: AbortSignal.timeout(15000), // 15s timeout
             });
@@ -307,7 +339,14 @@ class AIGatewayService {
      */
     async healthCheck() {
         try {
+            const headers = {};
+            const authToken = await getIdToken();
+            if (authToken) {
+                headers['Authorization'] = authToken;
+            }
+
             const response = await fetch(`${this.mcpBaseUrl}/api/mcp/health`, {
+                headers,
                 signal: AbortSignal.timeout(5000),
             });
             return response.ok ? await response.json() : { status: 'unhealthy' };

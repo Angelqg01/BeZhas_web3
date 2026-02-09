@@ -5,6 +5,7 @@
  * - Gas optimization & profitability analysis
  * - Smart BEZ <-> FIAT swap calculations
  * - Regulatory compliance verification (AML/KYC)
+ * - Payment processing (Stripe, Crypto, Wallet balance)
  * 
  * Used via STDIO for VS Code / CLI integration.
  * For Docker/Backend use the HTTP wrapper (http-server.ts).
@@ -18,14 +19,14 @@ import { registerTools } from './tools/index.js';
 // Initialize MCP Server
 const server = new McpServer({
     name: 'bezhas-intelligence',
-    version: '1.0.0',
-    description: 'BeZhas AI Intelligence Server - Gas optimization, Fiat/Crypto swap, and regulatory compliance',
+    version: '1.1.0',
+    description: 'BeZhas AI Intelligence Server - Gas optimization, Fiat/Crypto swap, payment processing, and regulatory compliance',
 });
 
-// Register all tools
+// Register all tools (including payment tools)
 registerTools(server);
 
 // Start STDIO transport (for VS Code / CLI)
 const transport = new StdioServerTransport();
 await server.connect(transport);
-console.error('🧠 BeZhas Intelligence MCP Server running (STDIO)...');
+console.error('🧠 BeZhas Intelligence MCP Server running (STDIO) with Payment Tools...');

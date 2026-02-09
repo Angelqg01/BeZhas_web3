@@ -26,8 +26,8 @@ env_variables:
 
 # Build configuration - uses Vite build
 build_env_variables:
-  VITE_API_URL: "https://api-dot-PROJECT_ID.uc.r.appspot.com"
-  VITE_WS_URL: "wss://api-dot-PROJECT_ID.uc.r.appspot.com"
+  VITE_API_URL: "https://api-dot-bezhas-production.uc.r.appspot.com"
+  VITE_WS_URL: "wss://api-dot-bezhas-production.uc.r.appspot.com"
   VITE_CHAIN_ID: "137"
   VITE_NETWORK: "polygon"
 
