@@ -23,6 +23,14 @@ const { ManufacturingModule } = require('./modules/ManufacturingModule');
 const { EnergyModule } = require('./modules/EnergyModule');
 const { AgricultureModule } = require('./modules/AgricultureModule');
 
+// Platform Service Modules
+const VIPSubscriptionManager = require('./vip');
+const StakingManager = require('./staking');
+const PaymentsManager = require('./payments');
+const RWAManager = require('./rwa');
+const LogisticsManager = require('./logistics');
+const MCPClient = require('./mcp-integration');
+
 // Smart Contracts Export
 const contractsModule = require('./contracts');
 
@@ -30,7 +38,15 @@ module.exports = {
     BeZhas,
     BeZhasUniversal, // alias
 
-    // Direct module access usually not needed but kept for advanced usage
+    // Platform Services
+    VIPSubscriptionManager,
+    StakingManager,
+    PaymentsManager,
+    RWAManager,
+    LogisticsManager,
+    MCPClient,
+
+    // Industry-specific modules
     modules: {
         RealEstateModule,
         HealthcareModule,
