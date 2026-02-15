@@ -336,13 +336,8 @@ const DeveloperConsole = () => {
 
     const fetchApiKeys = async () => {
         try {
-            const token = getAuthToken();
-
-            if (!token || !isConnected) {
-                if (!isConnected) {
-                    // Don't show error, just wait for connection
-                }
-                setBackendAvailable(false);
+            // Wallet connection is sufficient — backend accepts x-wallet-address header
+            if (!isConnected) {
                 setApiKeys([]);
                 setLoading(false);
                 return;
@@ -360,13 +355,14 @@ const DeveloperConsole = () => {
                 toast.error('Timeout: El backend tardó demasiado en responder');
                 setBackendAvailable(false);
             } else if (error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
-                toast.error('Backend no disponible. Asegúrate de que el servidor esté corriendo en el puerto 5000');
+                toast.error('Backend no disponible. Asegúrate de que el servidor esté corriendo.');
                 setBackendAvailable(false);
-            } else if (error.response?.status === 500) {
-                toast.error('Error interno del servidor. Revisa los logs del backend.');
-                setBackendAvailable(true); // El servidor está arriba pero tiene un error
+            } else if (error.response?.status === 500 || error.response?.status === 503) {
+                toast.error('Error del servidor. MongoDB puede no estar conectado.');
+                setBackendAvailable(true);
             } else if (error.response?.status === 401 || error.response?.status === 403) {
-                toast.error('No autorizado. Verifica tu sesión e inicia sesión nuevamente.');
+                // Try wallet re-auth
+                toast.error('No autorizado. Conecta tu wallet o inicia sesión.');
                 setBackendAvailable(true);
             } else {
                 toast.error(error.response?.data?.error || 'Error desconocido al cargar API Keys');
@@ -405,15 +401,7 @@ const DeveloperConsole = () => {
                 return;
             }
 
-            let token = getAuthToken();
-
-            if (!token) {
-                // Try to authenticate first
-                const success = await authenticateWithWallet();
-                if (!success) return;
-                token = getAuthToken();
-            }
-
+            // Wallet auth is sufficient — no JWT required
             const response = await http.post('/api/developer/keys', formData, {
                 timeout: 5000
             });
@@ -520,22 +508,11 @@ const DeveloperConsole = () => {
                                     </span>
                                 </div>
                             )}
-                            {/* Auth Button - show if connected but no valid token */}
-                            {isConnected && !getAuthToken() && (
-                                <button
-                                    onClick={authenticateWithWallet}
-                                    disabled={isAuthenticating}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all flex items-center gap-2 disabled:opacity-50"
-                                >
-                                    <LogIn className="w-4 h-4" />
-                                    {isAuthenticating ? 'Firmando...' : 'Iniciar Sesión'}
-                                </button>
-                            )}
                             <button
                                 onClick={() => setShowCreateModal(true)}
-                                disabled={!backendAvailable || !isConnected || !getAuthToken()}
+                                disabled={!backendAvailable || !isConnected}
                                 className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold hover:shadow-xl hover:scale-105 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-                                title={!isConnected ? 'Conecta tu wallet primero' : !getAuthToken() ? 'Inicia sesión primero' : backendAvailable ? 'Crear una nueva API Key para tu aplicación' : 'Backend no disponible'}
+                                title={!isConnected ? 'Conecta tu wallet primero' : backendAvailable ? 'Crear una nueva API Key para tu aplicación' : 'Backend no disponible'}
                             >
                                 <Plus className="w-5 h-5" />
                                 Nueva API Key
@@ -954,6 +931,28 @@ const ApiKeyCard = ({ apiKey, onDelete, onRotate, onViewDetails }) => {
     );
 };
 
+// Sector → Required permissions auto-fill map
+const SECTOR_PERMISSIONS_MAP = {
+    ecommerce: ['marketplace:read', 'marketplace:write', 'payments:read', 'payments:escrow:create', 'payments:swap', 'logistics:read', 'logistics:write'],
+    logistics: ['logistics:read', 'logistics:write', 'logistics:fleet', 'supply:provenance:track', 'supply:compliance:verify', 'supply:warehouse:manage'],
+    services: ['payments:read', 'payments:escrow:create', 'ai:moderate', 'identity:read', 'identity:verify'],
+    realestate: ['realestate:tokenize', 'realestate:fractionate', 'realestate:manage', 'realestate:rent:collect', 'payments:read', 'payments:escrow:create', 'legal:contract:deploy'],
+    finance: ['payments:read', 'payments:escrow:create', 'payments:swap', 'ai:analyze', 'identity:read', 'identity:verify'],
+    healthcare: ['healthcare:prescriptions:verify', 'healthcare:supply:track', 'healthcare:records:read', 'healthcare:records:write', 'healthcare:compliance:audit', 'identity:verify'],
+    automotive: ['automotive:vehicle:tokenize', 'automotive:parts:sync', 'automotive:maintenance:log', 'automotive:history:read', 'automotive:ownership:transfer', 'logistics:read'],
+    manufacturing: ['manufacturing:iot:read', 'manufacturing:quality:certify', 'manufacturing:supply:track', 'manufacturing:twin:create', 'manufacturing:compliance:verify', 'supply:provenance:track'],
+    energy: ['energy:credits:trade', 'energy:consumption:track', 'energy:grid:balance', 'energy:renewable:certify', 'energy:meters:read', 'carbon:credits:trade'],
+    agriculture: ['agriculture:harvest:certify', 'agriculture:supply:track', 'agriculture:land:tokenize', 'agriculture:organic:verify', 'agriculture:iot:sensors', 'supply:provenance:track'],
+    education: ['education:credentials:issue', 'education:credentials:verify', 'education:courses:manage', 'education:enrollment:track', 'education:certificates:mint', 'identity:verify'],
+    insurance: ['insurance:policy:create', 'insurance:claim:process', 'insurance:claim:verify', 'insurance:oracle:trigger', 'insurance:premium:calculate', 'identity:verify', 'ai:analyze'],
+    entertainment: ['entertainment:nft:mint', 'entertainment:royalties:distribute', 'entertainment:rights:manage', 'entertainment:tickets:issue', 'entertainment:streaming:track', 'payments:read'],
+    legal: ['legal:contract:deploy', 'legal:notarize', 'legal:dispute:arbitrate', 'legal:documents:verify', 'legal:signatures:collect', 'identity:verify'],
+    supply_chain: ['supply:provenance:track', 'supply:compliance:verify', 'supply:carbon:offset', 'supply:customs:clear', 'supply:warehouse:manage', 'logistics:read', 'logistics:write'],
+    government: ['gov:identity:issue', 'gov:identity:verify', 'gov:vote:cast', 'gov:records:certify', 'gov:licenses:issue', 'identity:verify'],
+    carbon: ['carbon:credits:issue', 'carbon:credits:trade', 'carbon:offset:verify', 'carbon:projects:certify', 'carbon:compliance:report', 'energy:renewable:certify'],
+    other: []
+};
+
 // Modal de Creación de API Key
 const CreateKeyModal = ({ onClose, onCreate, permissionModules }) => {
     const [formData, setFormData] = useState({
@@ -961,13 +960,28 @@ const CreateKeyModal = ({ onClose, onCreate, permissionModules }) => {
         description: '',
         sector: 'ecommerce',
         environment: 'development',
-        permissions: []
+        permissions: SECTOR_PERMISSIONS_MAP['ecommerce'] || []
     });
+
+    // Auto-fill permissions when sector changes
+    const handleSectorChange = (newSector) => {
+        const autoPerms = SECTOR_PERMISSIONS_MAP[newSector] || [];
+        setFormData(prev => ({
+            ...prev,
+            sector: newSector,
+            permissions: autoPerms
+        }));
+        toast.success(`Permisos auto-configurados para ${newSector}`);
+    };
 
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!formData.name) {
             toast.error('El nombre es requerido');
+            return;
+        }
+        if (formData.permissions.length === 0) {
+            toast.error('Selecciona al menos un permiso');
             return;
         }
         onCreate(formData);
@@ -1026,7 +1040,7 @@ const CreateKeyModal = ({ onClose, onCreate, permissionModules }) => {
                             </label>
                             <select
                                 value={formData.sector}
-                                onChange={(e) => setFormData({ ...formData, sector: e.target.value })}
+                                onChange={(e) => handleSectorChange(e.target.value)}
                                 className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 dark:text-white"
                             >
                                 <option value="ecommerce">E-commerce</option>
@@ -1034,8 +1048,25 @@ const CreateKeyModal = ({ onClose, onCreate, permissionModules }) => {
                                 <option value="services">Servicios</option>
                                 <option value="realestate">Bienes Raíces</option>
                                 <option value="finance">Finanzas</option>
+                                <option value="healthcare">Healthcare</option>
+                                <option value="automotive">Automotriz</option>
+                                <option value="manufacturing">Manufactura</option>
+                                <option value="energy">Energía</option>
+                                <option value="agriculture">Agricultura</option>
+                                <option value="education">Educación</option>
+                                <option value="insurance">Seguros</option>
+                                <option value="entertainment">Entretenimiento</option>
+                                <option value="legal">Legal</option>
+                                <option value="supply_chain">Supply Chain</option>
+                                <option value="government">Gobierno</option>
+                                <option value="carbon">Carbon Credits</option>
                                 <option value="other">Otro</option>
                             </select>
+                            {formData.permissions.length > 0 && (
+                                <p className="mt-1 text-xs text-green-500 dark:text-green-400">
+                                    ✅ {formData.permissions.length} permisos auto-configurados para este sector
+                                </p>
+                            )}
                         </div>
 
                         <div>

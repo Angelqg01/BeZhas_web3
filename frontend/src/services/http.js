@@ -31,7 +31,8 @@ http.interceptors.request.use((config) => {
     }
     // Attach wallet address for admin API routes (wallet-based auth)
     if (!config.headers['x-wallet-address']) {
-      const walletAddr = localStorage.getItem('adminWalletAddress');
+      const walletAddr = localStorage.getItem('adminWalletAddress')
+        || localStorage.getItem('wallet_address');
       if (walletAddr) {
         config.headers['x-wallet-address'] = walletAddr;
       }

@@ -249,33 +249,8 @@ router.get('/verify-session/:sessionId', protect, async (req, res) => {
     }
 });
 
-/**
- * @route   POST /api/vip/webhook/stripe
- * @desc    Webhook de Stripe para eventos de suscripción
- * @access  Public (verificado por Stripe signature)
- */
-router.post('/webhook/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
-    const sig = req.headers['stripe-signature'];
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-    let event;
-
-    try {
-        event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
-    } catch (err) {
-        console.error('⚠️  Webhook signature verification failed:', err.message);
-        return res.status(400).send(`Webhook Error: ${err.message}`);
-    }
-
-    // Handle the event
-    try {
-        await handleSubscriptionWebhook(event);
-        res.json({ received: true });
-    } catch (error) {
-        console.error('Error handling webhook:', error);
-        res.status(500).json({ error: 'Webhook handler failed' });
-    }
-});
+// NOTE: Webhook endpoint has been moved to stripe-webhook.routes.js
+// which is mounted BEFORE express.json() in server.js for correct raw body handling.
 
 // ============================================================================
 // LEGACY ROUTES (Kept for backwards compatibility)

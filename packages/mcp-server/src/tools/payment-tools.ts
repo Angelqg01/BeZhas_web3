@@ -278,11 +278,16 @@ export const paymentTools = [
  */
 export function registerPaymentTools(server: any): void {
     paymentTools.forEach(tool => {
-        server.addTool({
-            name: tool.name,
-            description: tool.description,
-            inputSchema: tool.inputSchema,
-            handler: tool.handler
-        });
+        server.tool(
+            tool.name,
+            tool.description,
+            tool.inputSchema.shape,
+            async (args: any) => {
+                const result = await tool.handler(args);
+                return {
+                    content: [{ type: 'text', text: JSON.stringify(result, null, 2) }]
+                };
+            }
+        );
     });
 }

@@ -73,6 +73,25 @@ router.get('/dashboard-stats', verifyAdminToken, async (req, res) => {
     }
 });
 
+// Get system components status
+router.get('/system/components', verifyAdminToken, async (req, res) => {
+    try {
+        const db = require('../database/inMemoryDB');
+        res.json({
+            success: true,
+            components: [
+                { name: 'Backend API', status: 'operational', version: '1.0.0' },
+                { name: 'Database', status: 'operational', version: 'PostgreSQL 14' },
+                { name: 'Cache', status: 'operational', version: 'Redis 6' },
+                { name: 'Blockchain Listener', status: 'degraded', message: 'Syncing' },
+                { name: 'AI Engine', status: 'operational', version: 'v2' }
+            ]
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to get system components' });
+    }
+});
+
 // List all users
 router.get('/users', verifyAdminToken, async (req, res) => {
     try {

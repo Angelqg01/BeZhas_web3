@@ -51,7 +51,9 @@
     "three": "^0.180.0",
     "viem": "^2.42.1",
     "wagmi": "^3.1.0",
-    "zustand": "^5.0.9"
+    "zustand": "^5.0.9",
+    "@bezhas/sdk": "workspace:*",
+    "@bezhas/mcp-server": "workspace:*"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.19",

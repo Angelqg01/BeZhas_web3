@@ -132,7 +132,31 @@ const AdvancedRateLimiter = require('./middleware/advancedRateLimiter');
 console.log('✅ AdvancedRateLimiter loaded');
 const MessageRateLimiter = require('./middleware/messageRateLimiter');
 console.log('✅ MessageRateLimiter loaded');
-// const mongoose = require('mongoose');
+const mongoose = require('mongoose');
+
+// ── MongoDB Connection ──
+const MONGODB_URI = process.env.MONGODB_URI;
+if (MONGODB_URI) {
+    mongoose.connect(MONGODB_URI, {
+        maxPoolSize: 10,
+        serverSelectionTimeoutMS: 10000,
+        socketTimeoutMS: 45000,
+    })
+        .then(() => console.log('✅ MongoDB connected successfully'))
+        .catch(err => console.error('❌ MongoDB initial connection error:', err.message));
+
+    mongoose.connection.on('error', (err) => {
+        console.error('❌ MongoDB connection error:', err.message);
+    });
+    mongoose.connection.on('disconnected', () => {
+        console.warn('⚠️ MongoDB disconnected. Attempting to reconnect...');
+    });
+    mongoose.connection.on('reconnected', () => {
+        console.log('✅ MongoDB reconnected');
+    });
+} else {
+    console.warn('⚠️ MONGODB_URI not set — features requiring MongoDB (SDK Admin, Developer Console) will be unavailable');
+}
 
 // Suppress Mongoose duplicate index warnings
 process.removeAllListeners('warning');
@@ -336,6 +360,15 @@ const corsOptions = {
     optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
+
+// ============================================================================
+// STRIPE WEBHOOK — Must be mounted BEFORE express.json() to preserve raw body
+// Stripe signature verification requires the raw, unparsed request body.
+// If express.json() runs first, it consumes the body and breaks verification.
+// ============================================================================
+const stripeWebhookRouter = require('./routes/stripe-webhook.routes');
+app.use('/api/stripe', stripeWebhookRouter);
+
 app.use(express.json({ limit: '10mb' }));
 
 // ============================================================================
@@ -793,10 +826,12 @@ app.use('/api/admin/dependencies', adminDependenciesRoutes);
 app.use('/api/admin/rate-limit', adminRateLimitRoutes);
 app.use('/api/admin', require('./routes/admin.auth.routes')); // Admin auth verification
 app.use('/api/admin/sdk', require('./routes/sdkAdmin.routes')); // SDK & AI Admin Management
-// app.use('/api/plugins', require('./routes/pluginRoutes')); // Plugin Management System - Temporarily disabled (Prisma dependency issue)
+app.use('/api/plugins', require('./routes/pluginRoutes')); // Plugin Management System
+app.use('/api/mcp', require('./routes/mcp.routes')); // MCP Tools Integration
 app.use('/api/contacts', contactRoutes);
 app.use('/api/marketplace', marketplaceRoutes);
-// app.use('/api/quests', questsLimiter, questsRoutes);
+app.use('/api/diagnostic', require('./routes/diagnostic.routes')); // Diagnostic Agent
+app.use('/api/quests', questsLimiter, questsRoutes);
 // app.use('/api/badges', questsLimiter, badgesRoutes);
 app.use('/api/uploads', uploadsRoutes);
 app.use('/api/staking', stakingRoutes);
@@ -1133,7 +1168,10 @@ app.get('/api/config', configLimiter, async (req, res) => {
         // Combine and send
         const fullConfig = {
             ...baseConfig,
-            contractAddresses: contractAddresses,
+            contractAddresses: {
+                ...contractAddresses,
+                BezhasTokenAddress: process.env.BEZCOIN_CONTRACT_ADDRESS || contractAddresses.BezhasTokenAddress
+            },
             abis: abis,
             timestamp: new Date().toISOString()
         };

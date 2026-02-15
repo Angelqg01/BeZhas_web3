@@ -1,4 +1,5 @@
 const SDKConfig = require('../models/SDKConfig.model');
+const mongoose = require('mongoose');
 const logger = require('../utils/logger') || console;
 
 /**
@@ -8,9 +9,22 @@ const logger = require('../utils/logger') || console;
  */
 class SDKAdminService {
 
+    /**
+     * Ensure MongoDB is connected before attempting operations
+     * @throws {Error} with statusCode 503 if not connected
+     */
+    _ensureDbConnected() {
+        if (mongoose.connection.readyState !== 1) {
+            const err = new Error('MongoDB is not connected. SDK Admin features require a database connection.');
+            err.statusCode = 503;
+            throw err;
+        }
+    }
+
     // ── Global Config ──
 
     async getFullConfig() {
+        this._ensureDbConnected();
         try {
             const config = await SDKConfig.getConfig();
             return config.toObject();
@@ -21,6 +35,7 @@ class SDKAdminService {
     }
 
     async getOverview() {
+        this._ensureDbConnected();
         try {
             const config = await SDKConfig.getConfig();
             return {
@@ -52,6 +67,7 @@ class SDKAdminService {
     }
 
     async updateGlobalSettings(settings, adminId) {
+        this._ensureDbConnected();
         try {
             const allowedFields = [
                 'isGloballyEnabled', 'maintenanceMode', 'maintenanceMessage',
@@ -74,11 +90,13 @@ class SDKAdminService {
     // ── Modules ──
 
     async getModules() {
+        this._ensureDbConnected();
         const config = await SDKConfig.getConfig();
         return config.modules;
     }
 
     async getModule(moduleId) {
+        this._ensureDbConnected();
         const config = await SDKConfig.getConfig();
         const mod = config.modules.find(m => m.moduleId === moduleId);
         if (!mod) throw new Error(`Module '${moduleId}' not found`);
@@ -86,6 +104,7 @@ class SDKAdminService {
     }
 
     async updateModule(moduleId, updates, adminId) {
+        this._ensureDbConnected();
         const config = await SDKConfig.getConfig();
         const mod = config.modules.find(m => m.moduleId === moduleId);
         if (!mod) throw new Error(`Module '${moduleId}' not found`);
@@ -111,11 +130,13 @@ class SDKAdminService {
     // ── AI Models ──
 
     async getAIModels() {
+        this._ensureDbConnected();
         const config = await SDKConfig.getConfig();
         return config.aiModels;
     }
 
     async addAIModel(modelData, adminId) {
+        this._ensureDbConnected();
         const config = await SDKConfig.getConfig();
         config.aiModels.push(modelData);
         config.updatedBy = adminId;
@@ -124,6 +145,7 @@ class SDKAdminService {
     }
 
     async updateAIModel(modelId, updates, adminId) {
+        this._ensureDbConnected();
         const config = await SDKConfig.getConfig();
         const model = config.aiModels.id(modelId);
         if (!model) throw new Error(`AI Model '${modelId}' not found`);
@@ -144,6 +166,7 @@ class SDKAdminService {
     }
 
     async deleteAIModel(modelId, adminId) {
+        this._ensureDbConnected();
         const config = await SDKConfig.getConfig();
         const model = config.aiModels.id(modelId);
         if (!model) throw new Error(`AI Model '${modelId}' not found`);
@@ -160,11 +183,13 @@ class SDKAdminService {
     // ── Access Tiers ──
 
     async getAccessTiers() {
+        this._ensureDbConnected();
         const config = await SDKConfig.getConfig();
         return config.accessTiers;
     }
 
     async updateAccessTier(tierName, updates, adminId) {
+        this._ensureDbConnected();
         const config = await SDKConfig.getConfig();
         const tier = config.accessTiers.find(t => t.name === tierName);
         if (!tier) throw new Error(`Tier '${tierName}' not found`);
@@ -187,11 +212,13 @@ class SDKAdminService {
     // ── Webhooks ──
 
     async getWebhooks() {
+        this._ensureDbConnected();
         const config = await SDKConfig.getConfig();
         return config.webhooks;
     }
 
     async addWebhook(webhookData, adminId) {
+        this._ensureDbConnected();
         const config = await SDKConfig.getConfig();
         config.webhooks.push(webhookData);
         config.updatedBy = adminId;
@@ -200,6 +227,7 @@ class SDKAdminService {
     }
 
     async updateWebhook(webhookId, updates, adminId) {
+        this._ensureDbConnected();
         const config = await SDKConfig.getConfig();
         const webhook = config.webhooks.id(webhookId);
         if (!webhook) throw new Error(`Webhook '${webhookId}' not found`);
@@ -216,6 +244,7 @@ class SDKAdminService {
     }
 
     async deleteWebhook(webhookId, adminId) {
+        this._ensureDbConnected();
         const config = await SDKConfig.getConfig();
         const webhook = config.webhooks.id(webhookId);
         if (!webhook) throw new Error(`Webhook '${webhookId}' not found`);
@@ -226,6 +255,7 @@ class SDKAdminService {
     }
 
     async testWebhook(webhookId) {
+        this._ensureDbConnected();
         const config = await SDKConfig.getConfig();
         const webhook = config.webhooks.id(webhookId);
         if (!webhook) throw new Error(`Webhook '${webhookId}' not found`);
@@ -266,6 +296,7 @@ class SDKAdminService {
     // ── MCP Server Health ──
 
     async checkMCPHealth() {
+        this._ensureDbConnected();
         const config = await SDKConfig.getConfig();
         const mcpUrl = config.mcpServer?.url || process.env.MCP_SERVER_URL || 'http://bezhas-intelligence:8080';
 

@@ -45,6 +45,7 @@
     "express-session": "^1.18.2",
     "express-validator": "^7.2.1",
     "form-data": "^4.0.5",
+    "gcp-metadata": "^5.3.0",
     "glob": "^13.0.0",
     "google-auth-library": "^10.5.0",
     "helmet": "^8.1.0",
@@ -72,7 +73,8 @@
     "validator": "^13.11.0",
     "winston": "^3.19.0",
     "ws": "^8.14.2",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "@prisma/client": "^5.10.0"
   },
   "devDependencies": {
     "@babel/traverse": "^7.29.0",

@@ -319,31 +319,7 @@ router.post('/refund', protect, requireAdmin, async (req, res) => {
     }
 });
 
-/**
- * POST /api/stripe/webhook
- * Webhook para eventos de Stripe
- */
-router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-    try {
-        const signature = req.headers['stripe-signature'];
-
-        if (!signature) {
-            return res.status(400).json({
-                error: 'Missing stripe signature'
-            });
-        }
-
-        const result = await handleStripeWebhook(req.body, signature);
-
-        res.json({ received: true, handled: result.handled });
-
-    } catch (error) {
-        console.error('Webhook error:', error);
-        res.status(400).json({
-            error: 'Webhook processing failed',
-            message: error.message
-        });
-    }
-});
+// NOTE: Webhook endpoint has been moved to stripe-webhook.routes.js
+// which is mounted BEFORE express.json() in server.js for correct raw body handling.
 
 module.exports = router;

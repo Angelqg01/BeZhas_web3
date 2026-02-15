@@ -13,14 +13,17 @@ RUN npm install -g pnpm@9
 # Copiar archivos de dependencias del frontend
 COPY frontend/package.json frontend/pnpm-lock.yaml* ./
 
-# Instalar dependencias (sin frozen-lockfile para mayor compatibilidad)
+# Copiar SDK antes de install para resolver @bezhas/sdk dependency
+COPY sdk/ /sdk/
+
+# Reemplazar workspace:* con file: para que pnpm pueda resolver el SDK en Docker
+RUN sed -i 's|"workspace:\*"|"file:/sdk"|g' package.json
+
+# Instalar dependencias (sin frozen-lockfile para compatibilidad)
 RUN pnpm install --no-frozen-lockfile
 
 # Copiar código fuente del frontend
 COPY frontend/ .
-
-# Copiar SDK para el alias @sdk
-COPY sdk/ /sdk/
 
 # Build arguments para variables de entorno en tiempo de build
 ARG VITE_API_URL=https://api.bezhas.com

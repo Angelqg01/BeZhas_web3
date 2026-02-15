@@ -524,58 +524,7 @@ router.get('/gas-estimate', protect, async (req, res) => {
     }
 });
 
-// ============================================================================
-// STRIPE WEBHOOKS
-// ============================================================================
-
-/**
- * @route   POST /api/subscription/webhooks/stripe
- * @desc    Handle Stripe webhook events
- * @access  Public (verified by Stripe signature)
- */
-router.post('/webhooks/stripe',
-    express.raw({ type: 'application/json' }),
-    async (req, res) => {
-        const sig = req.headers['stripe-signature'];
-        const endpointSecret = process.env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET;
-
-        try {
-            const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-            const event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
-
-            // Handle the event
-            switch (event.type) {
-                case 'customer.subscription.created':
-                case 'customer.subscription.updated':
-                    await subscriptionService.handleSubscriptionUpdate(event.data.object);
-                    break;
-
-                case 'customer.subscription.deleted':
-                    await subscriptionService.handleSubscriptionCancelled(event.data.object);
-                    break;
-
-                case 'invoice.payment_succeeded':
-                    await subscriptionService.handlePaymentSucceeded(event.data.object);
-                    break;
-
-                case 'invoice.payment_failed':
-                    await subscriptionService.handlePaymentFailed(event.data.object);
-                    break;
-
-                default:
-                    console.log(`Unhandled subscription event type: ${event.type}`);
-            }
-
-            res.json({ received: true });
-
-        } catch (error) {
-            console.error('Webhook error:', error);
-            res.status(400).json({
-                success: false,
-                message: `Webhook Error: ${error.message}`
-            });
-        }
-    }
-);
+// NOTE: Webhook endpoint has been moved to stripe-webhook.routes.js
+// which is mounted BEFORE express.json() in server.js for correct raw body handling.
 
 module.exports = router;

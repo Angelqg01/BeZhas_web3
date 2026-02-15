@@ -61,7 +61,7 @@ export const config = {
 
     // ─── HTTP Server ───────────────────────────────────────
     http: {
-        port: parseInt(process.env.HTTP_PORT || '8080', 10),
+        port: parseInt(process.env.PORT || process.env.HTTP_PORT || '8080', 10),
     },
 
     // ─── Gas Thresholds ────────────────────────────────────

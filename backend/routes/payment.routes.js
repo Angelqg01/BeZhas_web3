@@ -182,40 +182,8 @@ router.post('/create-validation-session', async (req, res) => {
     });
 });
 
-router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-    const sig = req.headers['stripe-signature'];
-    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-    let event;
-
-    try {
-        event = stripe.webhooks.constructEvent(
-            req.body,
-            sig,
-            process.env.STRIPE_WEBHOOK_SECRET
-        );
-    } catch (err) {
-        logger.error('Webhook signature verification failed:', err.message);
-        return res.status(400).send(`Webhook Error: ${err.message}`);
-    }
-
-    // Handle the event
-    switch (event.type) {
-        case 'checkout.session.completed':
-            await handleCheckoutCompleted(event.data.object, stripe);
-            break;
-        case 'payment_intent.succeeded':
-            await handlePaymentSucceeded(event.data.object);
-            break;
-        case 'payment_intent.payment_failed':
-            logger.warn('Payment failed:', event.data.object);
-            await handlePaymentFailed(event.data.object);
-            break;
-        default:
-            logger.info(`Unhandled event type ${event.type}`);
-    }
-
-    res.json({ received: true });
-});
+// NOTE: Webhook endpoint has been moved to stripe-webhook.routes.js
+// which is mounted BEFORE express.json() in server.js for correct raw body handling.
 
 /**
  * Handle successful checkout session completion
