@@ -8,19 +8,19 @@ import {
     Zap as ZapIcon, Cpu as CpuIcon, BarChart2 as BarChart2Icon,
     Search as SearchIcon, User as UserIcon, DollarSign as DollarSignIcon, Wallet as WalletIcon
 } from 'lucide-react';
-import http from '../../services/http';
+import http from '../services/http';
 import { toast } from 'react-hot-toast';
-import { useAuth } from '../../context/AuthContext';
-import MainLayout from '../../components/layout/MainLayout';
+import { useAuth } from '../context/AuthContext';
+import MainLayout from '../components/layout/MainLayout';
 
 // Sub-components
-import McpSdkDownloadTab from '../../components/developer-console/McpSdkDownloadTab';
-import SDKSnippetsTab from '../../components/developer-console/SDKSnippetsTab';
-import WebhooksTab from '../../components/developer-console/WebhooksTab';
-import EmbedWidgetsTab from '../../components/developer-console/EmbedWidgetsTab';
-import DocumentationTab from '../../components/developer-console/DocumentationTab';
-import LoyaltyMetricsTab from '../../components/developer-console/LoyaltyMetricsTab';
-import { EmptyState, ApiKeyCard, CreateKeyModal, KeyRevealModal, KeyDetailsModal } from '../../components/developer-console/ApiKeyManagement';
+import McpSdkDownloadTab from '../components/developer-console/McpSdkDownloadTab';
+import SDKSnippetsTab from '../components/developer-console/SDKSnippetsTab';
+import WebhooksTab from '../components/developer-console/WebhooksTab';
+import EmbedWidgetsTab from '../components/developer-console/EmbedWidgetsTab';
+import DocumentationTab from '../components/developer-console/DocumentationTab';
+import LoyaltyMetricsTab from '../components/developer-console/LoyaltyMetricsTab';
+import { EmptyState, ApiKeyCard, CreateKeyModal, KeyRevealModal, KeyDetailsModal } from '../components/developer-console/ApiKeyManagement';
 
 // Constantes y Mapeos
 const PERMISSION_MODULES = {
