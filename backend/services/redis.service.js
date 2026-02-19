@@ -135,32 +135,14 @@ class RedisService {
                 this.client = null;
             });
 
-            return this.client;
-
-            this.client.on('ready', () => {
-                this.isConnected = true;
-                this.isConnecting = false;
-                this.reconnectAttempts = 0;
-                logger.info('✅ Redis connected and ready');
-            });
-
-            this.client.on('error', (err) => {
-                this.isConnected = false;
-                logger.error({ error: err.message }, 'Redis connection error');
-            });
-
-            this.client.on('close', () => {
-                this.isConnected = false;
-                logger.warn('Redis connection closed');
-            });
-
-            this.client.on('reconnecting', () => {
-                this.reconnectAttempts++;
-                logger.info({ attempt: this.reconnectAttempts }, 'Redis reconnecting...');
-            });
-
-            // Wait for connection
-            await this.client.ping();
+            // Wait for connection validation
+            try {
+                await this.client.ping();
+            } catch (pingError) {
+                logger.warn(`⚠️ Redis ping failed: ${pingError.message}. Running in memory-only mode.`);
+                this.disconnect();
+                return null;
+            }
 
             return this.client;
 

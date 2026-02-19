@@ -4,7 +4,7 @@ const { z } = require('zod');
 
 // Development mode - simplified environment requirements
 const EnvSchema = z.object({
-    PORT: z.string().optional().default('3001'),
+    PORT: z.string().optional().default('8080'),
     NODE_ENV: z.string().optional().default('development'),
     ALLOWED_ORIGINS: z.string().optional().default('http://localhost:5173,http://127.0.0.1:5173'),
     ADMIN_TOKEN: z.string().optional().default('dev-admin-token-12345-very-secure-token'),
@@ -40,7 +40,7 @@ if (!parsed.success) {
 
     // Use defaults for development
     const devDefaults = {
-        PORT: '3001',
+        PORT: process.env.PORT || '8080',
         NODE_ENV: 'development',
         ALLOWED_ORIGINS: 'http://localhost:5173,http://127.0.0.1:5173',
         ADMIN_TOKEN: 'dev-admin-token-12345-very-secure-token',

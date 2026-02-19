@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "start": "serve -s dist -l 8080",
     "build": "vite build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
@@ -52,8 +52,9 @@
     "viem": "^2.42.1",
     "wagmi": "^3.1.0",
     "zustand": "^5.0.9",
-    "@bezhas/sdk": "workspace:*",
-    "@bezhas/mcp-server": "workspace:*"
+    "@bezhas/sdk": "file:./bezhas-sdk-2.0.0.tgz",
+    "@bezhas/mcp-server": "file:./bezhas-mcp-server-1.0.0.tgz",
+    "serve": "^14.2.4"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.19",

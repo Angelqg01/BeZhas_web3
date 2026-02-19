@@ -14,17 +14,18 @@ substitutions:
 
 steps:
   # ===== Step 1: Build Backend Image (GCP Optimized) =====
-  # - name: "gcr.io/cloud-builders/docker"
-  #   args:
-  #     - "build"
-  #     - "-t"
-  #     - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO}/bezhas-backend:${_TAG}"
-  #     - "-t"
-  #     - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO}/bezhas-backend:latest"
-  #     - "-f"
-  #     - "backend/Dockerfile.gcp"
-  #     - "."
-  #   id: "build-backend"
+  # ===== Step 1: Build Backend Image (GCP Optimized) =====
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "build"
+      - "-t"
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO}/bezhas-backend:${_TAG}"
+      - "-t"
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO}/bezhas-backend:latest"
+      - "-f"
+      - "backend/Dockerfile.optimized"
+      - "."
+    id: "build-backend"
 
   # ===== Step 2: Build Frontend Image (GCP Optimized) =====
   - name: "gcr.io/cloud-builders/docker"
@@ -37,7 +38,7 @@ steps:
       - "-f"
       - "frontend/Dockerfile.gcp"
       - "--build-arg"
-      - "VITE_API_URL=https://api.bezhas.com"
+      - "VITE_API_URL=https://totemic-bonus-479312-c6.ew.r.appspot.com"
       - "--build-arg"
       - "VITE_WS_URL=wss://api.bezhas.com"
       - "--build-arg"
@@ -69,15 +70,16 @@ steps:
     waitFor: ["-"] # Run in parallel
 
   # ===== Step 3: Push Backend Image =====
-  # - name: "gcr.io/cloud-builders/docker"
-  #   args:
-  #     [
-  #       "push",
-  #       "--all-tags",
-  #       "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO}/bezhas-backend",
-  #     ]
-  #   id: "push-backend"
-  #   waitFor: ["build-backend"]
+  # ===== Step 3: Push Backend Image =====
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "push",
+        "--all-tags",
+        "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO}/bezhas-backend",
+      ]
+    id: "push-backend"
+    waitFor: ["build-backend"]
 
   # ===== Step 4: Push Frontend Image =====
   - name: "gcr.io/cloud-builders/docker"
@@ -102,39 +104,40 @@ steps:
     waitFor: ["build-mcp"]
 
   # ===== Step 5: Deploy Backend to Cloud Run =====
-  # - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
-  #   entrypoint: gcloud
-  #   args:
-  #     - "run"
-  #     - "deploy"
-  #     - "bezhas-backend"
-  #     - "--image"
-  #     - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO}/bezhas-backend:${_TAG}"
-  #     - "--region"
-  #     - "${_REGION}"
-  #     - "--platform"
-  #     - "managed"
-  #     - "--allow-unauthenticated"
-  #     - "--port"
-  #     - "5000"
-  #     - "--min-instances"
-  #     - "0"
-  #     - "--max-instances"
-  #     - "10"
-  #     - "--memory"
-  #     - "1Gi"
-  #     - "--cpu"
-  #     - "1"
-  #     - "--concurrency"
-  #     - "80"
-  #     - "--timeout"
-  #     - "300"
-  #     - "--set-env-vars"
-  #     - "NODE_ENV=production,GCP_PROJECT_ID=$PROJECT_ID"
-  #     - "--set-secrets"
-  #     - "ALLOWED_ORIGINS=ALLOWED_ORIGINS:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest,JWT_SECRET=JWT_SECRET:latest,MONGODB_URI=MONGODB_URI:latest,REDIS_URL=REDIS_URL:latest,GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,GITHUB_CLIENT_ID=GITHUB_CLIENT_ID:latest,GITHUB_CLIENT_SECRET=GITHUB_CLIENT_SECRET:latest,RELAYER_PRIVATE_KEY=RELAYER_PRIVATE_KEY:latest,POLYGON_RPC_URL=POLYGON_RPC_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,PINATA_API_KEY=PINATA_API_KEY:latest,PINATA_SECRET_KEY=PINATA_SECRET_KEY:latest,GOVERNANCE_CONTRACT_ADDRESS=GOVERNANCE_CONTRACT_ADDRESS:latest,FARMING_CONTRACT_ADDRESS=FARMING_CONTRACT_ADDRESS:latest,MARKETPLACE_CONTRACT_ADDRESS=MARKETPLACE_CONTRACT_ADDRESS:latest,BEZCOIN_CONTRACT_ADDRESS=BEZCOIN_CONTRACT_ADDRESS:latest,CORE_CONTRACT_ADDRESS=CORE_CONTRACT_ADDRESS:latest,QUALITY_ESCROW_ADDRESS=QUALITY_ESCROW_ADDRESS:latest,SUPER_ADMIN_WALLETS=SUPER_ADMIN_WALLETS:latest,ADMIN_WALLETS=ADMIN_WALLETS:latest,TREASURY_WALLET=TREASURY_WALLET:latest,COMMUNITY_WALLET=COMMUNITY_WALLET:latest,MCP_SERVER_URL=MCP_SERVER_URL:latest"
-  #   id: "deploy-backend"
-  #   waitFor: ["push-backend"]
+  # ===== Step 5: Deploy Backend to Cloud Run =====
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: gcloud
+    args:
+      - "run"
+      - "deploy"
+      - "bezhas-backend"
+      - "--image"
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPO}/bezhas-backend:${_TAG}"
+      - "--region"
+      - "${_REGION}"
+      - "--platform"
+      - "managed"
+      - "--allow-unauthenticated"
+      - "--port"
+      - "8080"
+      - "--min-instances"
+      - "1"
+      - "--max-instances"
+      - "10"
+      - "--memory"
+      - "2Gi"
+      - "--cpu"
+      - "2"
+      - "--concurrency"
+      - "80"
+      - "--timeout"
+      - "300"
+      - "--set-env-vars"
+      - "NODE_ENV=production,GCP_PROJECT_ID=$PROJECT_ID"
+      - "--set-secrets"
+      - "ALLOWED_ORIGINS=ALLOWED_ORIGINS:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest,JWT_SECRET=JWT_SECRET:latest,MONGODB_URI=MONGODB_URI:latest,REDIS_URL=REDIS_URL:latest,GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,GITHUB_CLIENT_ID=GITHUB_CLIENT_ID:latest,GITHUB_CLIENT_SECRET=GITHUB_CLIENT_SECRET:latest,RELAYER_PRIVATE_KEY=RELAYER_PRIVATE_KEY:latest,POLYGON_RPC_URL=POLYGON_RPC_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,PINATA_API_KEY=PINATA_API_KEY:latest,PINATA_SECRET_KEY=PINATA_SECRET_KEY:latest,GOVERNANCE_CONTRACT_ADDRESS=GOVERNANCE_CONTRACT_ADDRESS:latest,FARMING_CONTRACT_ADDRESS=FARMING_CONTRACT_ADDRESS:latest,MARKETPLACE_CONTRACT_ADDRESS=MARKETPLACE_CONTRACT_ADDRESS:latest,BEZCOIN_CONTRACT_ADDRESS=BEZCOIN_CONTRACT_ADDRESS:latest,CORE_CONTRACT_ADDRESS=CORE_CONTRACT_ADDRESS:latest,QUALITY_ESCROW_ADDRESS=QUALITY_ESCROW_ADDRESS:latest,SUPER_ADMIN_WALLETS=SUPER_ADMIN_WALLETS:latest,ADMIN_WALLETS=ADMIN_WALLETS:latest,TREASURY_WALLET=TREASURY_WALLET:latest,COMMUNITY_WALLET=COMMUNITY_WALLET:latest,MCP_SERVER_URL=MCP_SERVER_URL:latest"
+    id: "deploy-backend"
+    waitFor: ["push-backend"]
 
   # ===== Step 5b: Deploy MCP Intelligence Server to Cloud Run =====
   - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"

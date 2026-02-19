@@ -215,7 +215,7 @@ router.post('/login-wallet', [
       message: 'Login successful',
       user: {
         id: user._id,
-        username: user.username || `User_${walletAddress.slice(0, 6)}`,
+        username: user.username,
         email: user.email,
         walletAddress: user.walletAddress,
         roles: user.roles,
@@ -232,13 +232,23 @@ router.post('/login-wallet', [
 
 /**
  * @route   POST /api/auth/register-email
- * @desc    Register with email and password
+ * @desc    Register with email and password (Web 2.5 Flow)
  * @access  Public
  */
 router.post('/register-email', [
   body('email').isEmail().withMessage('Email válido requerido'),
   body('password').isLength({ min: 6 }).withMessage('Contraseña debe tener al menos 6 caracteres'),
+  body('accountType').isIn(['individual', 'freelancer', 'company']).withMessage('Tipo de cuenta inválido'),
+
+  // Optional but recommended fields depending on type
   body('username').optional().isString().trim(),
+  body('phone').optional().isString().trim(),
+  body('roles').optional().isArray(), // Allow passing 'VERIFIED_BUSINESS' if needed (check permissions in prod)
+
+  // Company fields validation (loose check, sanitize in controller)
+  body('companyName').optional().isString().trim(),
+  body('taxId').optional().isString().trim(),
+  body('industry').optional().isString(),
   body('referralCode').optional().isString().trim()
 ], async (req, res) => {
   const errors = validationResult(req);
@@ -246,41 +256,69 @@ router.post('/register-email', [
     return res.status(400).json({ errors: errors.array() });
   }
 
-  const { email, password, username, referralCode } = req.body;
+  const {
+    email, password, username, accountType,
+    companyName, taxId, industry, companySize, website,
+    primaryContactRole, expectedVolume, interestedServices,
+    phone, address, referralCode
+  } = req.body;
 
   try {
-    // Verificar si el email ya existe
+    // 1. Verify if email exists
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
       return res.status(400).json({ error: 'Email ya registrado' });
     }
 
-    // Hash de la contraseña
+    // 2. Hash Password
     const bcrypt = require('bcryptjs');
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Crear usuario
-    const user = new User({
+    // 3. Prepare User Data
+    const userData = {
       email: email.toLowerCase(),
       password: hashedPassword,
-      username: username || `User_${Date.now()}`,
-      authMethod: 'email',
+      username: username || (companyName ? companyName.replace(/\s+/g, '') : `User_${Date.now()}`),
+      accountType,
+      phone,
+      address, // Object { street, city, country... }
+
+      // Commercial Fields
+      companyName,
+      taxId,
+      industry,
+      companySize,
+      website,
+      primaryContactRole,
+      expectedVolume,
+      interestedServices,
+
       roles: ['USER'],
       'affiliate.referralCode': crypto.randomBytes(4).toString('hex').toUpperCase()
-    });
+    };
 
+    // Auto-assign VERIFIED_BUSINESS role if registering as verify-ready company (simplified logic)
+    if (accountType === 'company') {
+      // userData.roles.push('VERIFIED_BUSINESS'); // Optional: require manual approval?
+    }
+
+    // 4. Create User
+    const user = new User(userData);
     await user.save();
 
-    // Procesar referido si existe
+    // 5. Process Referral
     if (referralCode) {
       const referrer = await User.findOne({ 'affiliate.referralCode': referralCode });
       if (referrer) {
         await grantReferralReward(referrer._id, user._id);
+        user.affiliate.referredBy = referrer._id;
+        user.affiliate.registeredWithCode = referralCode;
+        await user.save();
       }
     }
 
-    // Generar token
+    // 6. Generate Token
     const token = generateToken(user._id);
 
     res.status(201).json({
@@ -289,7 +327,9 @@ router.post('/register-email', [
         id: user._id,
         email: user.email,
         username: user.username,
+        accountType: user.accountType,
         roles: user.roles,
+        companyName: user.companyName,
         referralCode: user.affiliate.referralCode
       },
       token
@@ -297,7 +337,7 @@ router.post('/register-email', [
 
   } catch (error) {
     console.error('Error en registro por email:', error);
-    res.status(500).json({ error: 'Error del servidor' });
+    res.status(500).json({ error: 'Error del servidor: ' + error.message });
   }
 });
 

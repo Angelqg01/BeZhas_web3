@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import BeZhasSDK from '@sdk/bezhas-sdk.js';
+import { BeZhas as BeZhasSDK } from '@bezhas/sdk';
 
 const SDKTestPage = () => {
     const [sdk, setSdk] = useState(null);

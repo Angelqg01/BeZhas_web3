@@ -31,46 +31,15 @@ if (process.env.NODE_ENV !== 'production') {
     );
 }
 
-// File transport (producción)
+// File transport removed for App Engine (Read-only FS)
+// Use Console transport with JSON format for Google Cloud Logging
 if (process.env.NODE_ENV === 'production') {
-    // Logs generales
     transports.push(
-        new winston.transports.File({
-            filename: path.join(__dirname, '../logs/combined.log'),
+        new winston.transports.Console({
             format: winston.format.combine(
                 winston.format.timestamp(),
                 winston.format.json()
-            ),
-            maxsize: 10485760, // 10MB
-            maxFiles: 30,
-        })
-    );
-
-    // Logs de error
-    transports.push(
-        new winston.transports.File({
-            filename: path.join(__dirname, '../logs/error.log'),
-            level: 'error',
-            format: winston.format.combine(
-                winston.format.timestamp(),
-                winston.format.json()
-            ),
-            maxsize: 10485760,
-            maxFiles: 30,
-        })
-    );
-
-    // Logs de auditoría (acciones críticas)
-    transports.push(
-        new winston.transports.File({
-            filename: path.join(__dirname, '../logs/audit.log'),
-            level: 'info',
-            format: winston.format.combine(
-                winston.format.timestamp(),
-                winston.format.json()
-            ),
-            maxsize: 10485760,
-            maxFiles: 90, // Mantener 90 días
+            )
         })
     );
 }

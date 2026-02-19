@@ -220,6 +220,9 @@ app.use(validateOrigin);
 // CORS with specific origins
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
 
+// Always allow production and standard dev origins
+if (!allowedOrigins.includes('https://bezhas.com')) allowedOrigins.push('https://bezhas.com');
+
 if (process.env.NODE_ENV !== 'production') {
     allowedOrigins.push(
         'http://localhost:5173',
@@ -228,9 +231,13 @@ if (process.env.NODE_ENV !== 'production') {
         'http://127.0.0.1:5174',
         'http://localhost:5175',
         'http://127.0.0.1:5175',
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
         'http://127.0.0.1:58425'
     );
 }
+
+console.log('✅ Allowed Origins:', allowedOrigins);
 
 const cspDirectives = {
     directives: {
@@ -335,12 +342,14 @@ const corsOptions = {
         // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
 
-        // DEBUG: Allow all in dev
-        if (process.env.NODE_ENV !== 'production') return callback(null, true);
-
-        if (allowedOrigins.includes(origin)) {
+        if (allowedOrigins.some(ao => origin === ao || (ao.includes('*') && origin.endsWith(ao.replace('*', ''))))) {
             callback(null, true);
         } else {
+            // Log warning but allow in non-production for debugging if needed
+            if (process.env.NODE_ENV !== 'production') {
+                console.warn(`⚠️ CORS Warning: Origin ${origin} not explicitly in allowedOrigins but allowed in dev.`);
+                return callback(null, true);
+            }
             logger.error({ origin: origin, allowed: allowedOrigins }, 'CORS error: Origin not allowed');
             callback(new Error('Not allowed by CORS'));
         }
@@ -356,6 +365,7 @@ const corsOptions = {
         'Accept',
         'Origin'
     ],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     exposedHeaders: ['x-request-id'],
     optionsSuccessStatus: 200
 };
@@ -430,6 +440,20 @@ const safeUseRoute = (path, ...middlewares) => {
         });
     }
 };
+
+const questsLimiter = AdvancedRateLimiter({
+    windowMs: 60 * 1000, // 1 minute
+    max: 60, // Limit each IP to 60 requests per windowMs
+    keyGenerator: (req) => {
+        return req.user ? `quests_${req.user.id}` : `quests_${req.ip}`;
+    },
+    handler: (req, res) => {
+        res.status(429).json({
+            success: false,
+            error: 'Too many requests, please try again later.'
+        });
+    }
+});
 
 // ========================================
 // API ROUTES
@@ -601,6 +625,10 @@ console.log('📦 healthRoutes loaded');
 
 // Public health check (no auth required)
 app.use('/health', healthRoutes);
+
+// Diagnostic Route (Semi-protected)
+const diagnosticRoutes = require('./routes/diagnostic.routes');
+app.use('/api/diagnostic', diagnosticRoutes);
 
 // NOTE: Public config endpoint moved to line ~1141 (combined version with ABIs + rate limiter).
 // The duplicate was removed to prevent Express route shadowing.
@@ -831,7 +859,7 @@ app.use('/api/mcp', require('./routes/mcp.routes')); // MCP Tools Integration
 app.use('/api/contacts', contactRoutes);
 app.use('/api/marketplace', marketplaceRoutes);
 app.use('/api/diagnostic', require('./routes/diagnostic.routes')); // Diagnostic Agent
-app.use('/api/quests', questsLimiter, questsRoutes);
+// app.use('/api/quests', questsLimiter, questsRoutes);
 // app.use('/api/badges', questsLimiter, badgesRoutes);
 app.use('/api/uploads', uploadsRoutes);
 app.use('/api/staking', stakingRoutes);
@@ -1118,9 +1146,7 @@ app.post('/api/automation/analyze-platform', express.json(), async (req, res) =>
     }
 });
 
-// Diagnostic Routes
-const diagnosticRoutes = require('./routes/diagnostic.routes');
-app.use('/api/diagnostic', diagnosticRoutes);
+// Duplicate diagnostic route removed
 // ----------------------------
 
 // Endpoint to get the current configuration combined with ABIs
@@ -1370,6 +1396,7 @@ app.use((err, req, res, next) => {
 
 // Start server only if not in test mode
 if (process.env.NODE_ENV !== 'test') {
+    const PORT = process.env.PORT || 8080;
     server.listen(PORT, '0.0.0.0', async () => {
         logger.info(`Backend server running on http://0.0.0.0:${PORT}`);
         logger.info(`Also accessible at http://127.0.0.1:${PORT}`);

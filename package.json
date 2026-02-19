@@ -10,6 +10,7 @@
     "start:backend": "node backend/server.js",
     "start:frontend": "cd frontend && pnpm dev",
     "start:dev": "concurrently \"pnpm start:backend\" \"pnpm start:frontend\"",
+    "dev": "pnpm start:dev",
     "build:frontend": "cd frontend && pnpm build",
     "build:backend:docker": "docker build -t bezhas-backend -f backend/Dockerfile.optimized backend/",
     "build:frontend:docker": "docker build -t bezhas-frontend -f frontend/Dockerfile.optimized frontend/",
@@ -49,6 +50,7 @@
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "3.0.8",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "concurrently": "^9.2.1",
     "ethers": "6.13.0",
     "hardhat": "^2.28.0",
     "supertest": "^7.1.4"
@@ -73,7 +75,7 @@
       "ws": ">=8.17.1",
       "undici": ">=6.21.1",
       "cookie": ">=0.7.0",
-      "path-to-regexp": ">=0.1.12",
+      "path-to-regexp": "0.1.7",
       "send": ">=0.19.0",
       "serve-static": ">=1.16.0",
       "body-parser": ">=1.20.3",

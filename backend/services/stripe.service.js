@@ -484,6 +484,38 @@ async function handleStripeWebhook(rawBody, signature) {
 }
 
 /**
+ * Handle a pre-verified Stripe event
+ */
+async function handleVerifiedEvent(event) {
+    const { type, data } = event;
+    const object = data.object;
+
+    switch (type) {
+        case 'checkout.session.completed':
+            return await handleCheckoutCompleted(object);
+
+        case 'payment_intent.succeeded':
+            return await handlePaymentSucceeded(object);
+
+        case 'payment_intent.payment_failed':
+            return await handlePaymentFailed(object);
+
+        case 'customer.subscription.created':
+            return await handleSubscriptionCreated(object);
+
+        case 'customer.subscription.deleted':
+            return await handleSubscriptionCancelled(object);
+
+        case 'customer.subscription.updated':
+            return await handleSubscriptionUpdated(object);
+
+        default:
+            console.log(`[STRIPE SERVICE] Unhandled verified event type: ${type}`);
+            return { handled: false };
+    }
+}
+
+/**
  * Handlers para eventos específicos
  */
 async function handleCheckoutCompleted(session) {
@@ -1031,6 +1063,13 @@ module.exports = {
     getCustomerSubscriptions,
     createRefund,
     handleStripeWebhook,
+    handleVerifiedEvent,
+    handleCheckoutCompleted,
+    handlePaymentSucceeded,
+    handlePaymentFailed,
+    handleSubscriptionCreated,
+    handleSubscriptionCancelled,
+    handleSubscriptionUpdated,
     // Export helper functions for testing
     processNFTMint,
     activatePremiumSubscription

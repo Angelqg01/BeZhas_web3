@@ -19,14 +19,36 @@ const queryClient = new QueryClient({
     },
 });
 
-function AppWithWeb3() {
-    // NO limpiar cache - permitir reconexión suave sin bloquear UI
-    // La reconexión ocurre en background sin afectar la carga inicial
+// Web3 Guard Component to handle network mismatches globally
+import { useAccount, useChainId, useSwitchChain } from 'wagmi';
+import { polygonAmoy, polygon } from 'wagmi/chains';
+import { Toaster, toast } from 'react-hot-toast';
 
+const NetworkGuard = ({ children }) => {
+    const { isConnected } = useAccount();
+    const chainId = useChainId();
+    const { switchChain } = useSwitchChain();
+
+    // Solo mostramos advertencia si no está en Amoy o Polygon Mainnet
+    useEffect(() => {
+        if (isConnected && chainId !== polygonAmoy.id && chainId !== polygon.id) {
+            toast.error('Red no soportada. BeZhas funciona mejor en Polygon/Amoy.', {
+                duration: 5000,
+                id: 'network-warning'
+            });
+        }
+    }, [isConnected, chainId]);
+
+    return children;
+};
+
+function AppWithWeb3() {
     return (
         <WagmiProvider config={config}>
             <QueryClientProvider client={queryClient}>
-                <RouterProvider router={router} />
+                <NetworkGuard>
+                    <RouterProvider router={router} />
+                </NetworkGuard>
             </QueryClientProvider>
         </WagmiProvider>
     );

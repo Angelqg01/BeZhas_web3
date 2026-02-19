@@ -1,3 +1,12 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
 // Tabla principal de Plugins
 model Plugin {
   id                String   @id @default(uuid())
@@ -6,7 +15,7 @@ model Plugin {
   description       String?
   repoUrl           String   // URL de GitHub para sincronización
   currentVersionId  String?  @unique
-  status            Status   @default(ACTIVE)
+  status            String   @default("ACTIVE")
   
   // Relaciones
   versions          PluginVersion[] @relation("PluginToVersions")
@@ -38,29 +47,11 @@ model UpdateLog {
   id            String   @id @default(uuid())
   pluginId      String
   adminWallet   String   // Dirección de la wallet que ejecutó la acción
-  action        Action   // UPDATE, ROLLBACK, INSTALL
+  action        String   // UPDATE, ROLLBACK, INSTALL
   fromVersion   String?
   toVersion     String?
-  status        LogStatus @default(SUCCESS)
+  status        String   @default("SUCCESS")
   
   plugin        Plugin   @relation(fields: [pluginId], references: [id])
   timestamp     DateTime @default(now())
-}
-
-enum Status {
-  ACTIVE
-  INACTIVE
-  UPDATING
-  ERROR
-}
-
-enum Action {
-  UPDATE
-  ROLLBACK
-  INSTALL
-}
-
-enum LogStatus {
-  SUCCESS
-  FAILED
 }

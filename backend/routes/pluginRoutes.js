@@ -5,10 +5,25 @@ const { validateAdminSignature } = require('../middleware/authAdmin');
 const UnifiedAI = require('../services/unified-ai.service');
 
 const router = express.Router();
-const prisma = new PrismaClient();
+let prisma;
+
+try {
+    const { PrismaClient } = require('@prisma/client');
+    prisma = new PrismaClient();
+} catch (error) {
+    console.warn('⚠️ PrismaClient could not be initialized. Plugin routes will be limited.');
+}
+
+// Helper para verificar prisma
+const checkPrisma = (req, res, next) => {
+    if (!prisma) {
+        return res.status(503).json({ error: 'Plugin service temporarily unavailable (Database client not initialized)' });
+    }
+    next();
+};
 
 // Listar todos los plugins
-router.get('/', async (req, res) => {
+router.get('/', checkPrisma, async (req, res) => {
     try {
         const plugins = await prisma.plugin.findMany({
             include: {
@@ -26,7 +41,7 @@ router.get('/', async (req, res) => {
 });
 
 // Sincronizar con GitHub (Requiere firma Admin)
-router.post('/sync', validateAdminSignature, async (req, res) => {
+router.post('/sync', checkPrisma, validateAdminSignature, async (req, res) => {
     try {
         await syncPluginsFromGithub();
         res.json({ message: 'Sincronización completada' });
@@ -36,7 +51,7 @@ router.post('/sync', validateAdminSignature, async (req, res) => {
 });
 
 // Obtener consejo de IA para actualización
-router.get('/:id/advice', validateAdminSignature, async (req, res) => {
+router.get('/:id/advice', checkPrisma, validateAdminSignature, async (req, res) => {
     const { id } = req.params;
     try {
         // 1. Obtener datos del plugin y sus versiones
@@ -94,7 +109,7 @@ Plugin: ${plugin.name}\nVersión actual: ${currentVersionTag}\nVersión nueva: $
 });
 
 // Actualizar plugin individual
-router.patch('/:id/update', validateAdminSignature, async (req, res) => {
+router.patch('/:id/update', checkPrisma, validateAdminSignature, async (req, res) => {
     const { id } = req.params;
     const { versionId } = req.body;
     const { address } = req.headers;
@@ -131,7 +146,7 @@ router.patch('/:id/update', validateAdminSignature, async (req, res) => {
 });
 
 // Rollback a versión estable anterior
-router.patch('/:id/rollback', validateAdminSignature, async (req, res) => {
+router.patch('/:id/rollback', checkPrisma, validateAdminSignature, async (req, res) => {
     const { id } = req.params;
     const { address } = req.headers;
 
@@ -182,7 +197,7 @@ router.patch('/:id/rollback', validateAdminSignature, async (req, res) => {
 });
 
 // Update All (Actualización Masiva)
-router.post('/update-all', validateAdminSignature, async (req, res) => {
+router.post('/update-all', checkPrisma, validateAdminSignature, async (req, res) => {
     const { address } = req.headers;
 
     try {

@@ -79,7 +79,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      '@sdk': path.resolve(__dirname, '../sdk'),
+      // '@sdk': path.resolve(__dirname, '../sdk'), // Removed specific alias to use node_modules package
     }
   },
   define: {
@@ -96,6 +96,8 @@ export default defineConfig({
     // include: ['buffer', 'process'] // Handled by plugin
   },
   build: {
+    minify: false, // Disabled for debugging
+    sourcemap: true, // Enabled for debugging
     rollupOptions: {
       external: (id) => {
         // Externalize SDK node_modules to avoid polyfill issues

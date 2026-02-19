@@ -11,12 +11,12 @@
  */
 
 // Import Sector Modules
-const { RealEstateModule } = require('./modules/RealEstateModule');
-const { HealthcareModule } = require('./modules/HealthcareModule');
-const { AutomotiveModule } = require('./modules/AutomotiveModule');
-const { ManufacturingModule } = require('./modules/ManufacturingModule');
-const { EnergyModule } = require('./modules/EnergyModule');
-const { AgricultureModule } = require('./modules/AgricultureModule');
+const RealEstateModule = require('./modules/RealEstateModule');
+const HealthcareModule = require('./modules/HealthcareModule');
+const AutomotiveModule = require('./modules/AutomotiveModule');
+const ManufacturingModule = require('./modules/ManufacturingModule');
+const EnergyModule = require('./modules/EnergyModule');
+const AgricultureModule = require('./modules/AgricultureModule');
 const {
     EducationModule,
     InsuranceModule,
@@ -31,6 +31,7 @@ const {
 
 class BeZhasUniversal {
     constructor(config) {
+        this.config = config;
         this.apiKey = config.apiKey;
         this.endpoint = config.endpoint || 'https://api.bezhas.com/v1/bridge';
         this.provider = config.provider; // Web3 Provider opcional

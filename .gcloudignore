@@ -58,6 +58,7 @@ typechain-types/
 docker-compose*.yml
 Dockerfile
 !backend/Dockerfile.gcp
+!backend/Dockerfile.optimized
 !frontend/Dockerfile.gcp
 !packages/mcp-server/Dockerfile
 !packages/mcp-server/.dockerignore

@@ -1,6 +1,7 @@
 # ===================================================
 # BeZhas Backend - Multi-Stage Optimized Dockerfile
 # ===================================================
+# Build Context: Root of Monorepo
 # Stage 1: Dependencies
 # Stage 2: Build
 # Stage 3: Production (minimal image)
@@ -14,11 +15,19 @@ RUN apk add --no-cache python3 make g++ git
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy root workspace definition
+COPY package.json pnpm-workspace.yaml ./
+
+# Copy package files for all workspaces
+COPY backend/package.json ./backend/
+COPY frontend/package.json ./frontend/
+COPY sdk/package.json ./sdk/
+COPY packages/mcp-server/package.json ./packages/mcp-server/
+
+# Install pnpm and dependencies (frozen-lockfile requires pnpm-lock.yaml)
+# We copy pnpm-lock.yaml if it exists
 COPY pnpm-lock.yaml* ./
 
-# Install pnpm and dependencies
 RUN npm install -g pnpm@9 && \
     pnpm install --frozen-lockfile --prod=false
 
@@ -29,10 +38,20 @@ WORKDIR /app
 
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/backend/node_modules ./backend/node_modules
+COPY --from=deps /app/sdk/node_modules ./sdk/node_modules
+COPY --from=deps /app/packages/mcp-server/node_modules ./packages/mcp-server/node_modules
+
+# Copy source code
 COPY . .
 
+# Build backend and dependencies if needed
+# (Assuming backend doesn't have a build step, but SDK might)
+# cd sdk && pnpm build (if SDK needs building)
+
 # Prune dev dependencies and prepare for production
-RUN npm prune --production && \
+RUN npm install -g pnpm@9 && \
+    pnpm prune --prod && \
     rm -rf .git .github tests test coverage .env.* *.md *.log
 
 # ===== STAGE 3: Production =====
@@ -50,35 +69,30 @@ RUN addgroup -g 1001 -S nodejs && \
 
 WORKDIR /app
 
-# Copy production dependencies and code
+# Copy production dependencies and code from builder
+# We need to preserve the monorepo structure for symlinks to work
 COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nodejs:nodejs /app/server.js ./
-COPY --from=builder --chown=nodejs:nodejs /app/config.js ./
-COPY --from=builder --chown=nodejs:nodejs /app/package.json ./
-COPY --from=builder --chown=nodejs:nodejs /app/services ./services
-COPY --from=builder --chown=nodejs:nodejs /app/routes ./routes
-COPY --from=builder --chown=nodejs:nodejs /app/controllers ./controllers
-COPY --from=builder --chown=nodejs:nodejs /app/middleware ./middleware
-COPY --from=builder --chown=nodejs:nodejs /app/models ./models
-COPY --from=builder --chown=nodejs:nodejs /app/utils ./utils
-COPY --from=builder --chown=nodejs:nodejs /app/abis ./abis
-COPY --from=builder --chown=nodejs:nodejs /app/config ./config
-COPY --from=builder --chown=nodejs:nodejs /app/lib ./lib
-COPY --from=builder --chown=nodejs:nodejs /app/automation ./automation
-COPY --from=builder --chown=nodejs:nodejs /app/websocket-server.js ./
-COPY --from=builder --chown=nodejs:nodejs /app/swagger.config.js ./
+COPY --from=builder --chown=nodejs:nodejs /app/package.json ./package.json
+COPY --from=builder --chown=nodejs:nodejs /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
+
+# Copy Backend
+COPY --from=builder --chown=nodejs:nodejs /app/backend ./backend
+
+# Copy SDK & MCP (Dependencies)
+COPY --from=builder --chown=nodejs:nodejs /app/sdk ./sdk
+COPY --from=builder --chown=nodejs:nodejs /app/packages/mcp-server ./packages/mcp-server
 
 # Environment variables
 ENV NODE_ENV=production \
-    PORT=3001 \
+    PORT=8080 \
     # Memory optimization
-    NODE_OPTIONS="--max-old-space-size=512 --gc-interval=100"
+    NODE_OPTIONS="--max-old-space-size=1024"
 
 # Security: Run as non-root user
 USER nodejs
 
 # Expose port
-EXPOSE 3001
+EXPOSE 8080
 
 # Health check with curl (more reliable)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
@@ -88,7 +102,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 ENTRYPOINT ["dumb-init", "--"]
 
 # Start the application
-CMD ["node", "server.js"]
+CMD ["node", "backend/server.js"]
 
 # Labels for container metadata
 LABEL org.opencontainers.image.title="BeZhas Backend API" \

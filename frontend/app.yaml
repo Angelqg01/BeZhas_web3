@@ -26,69 +26,11 @@ env_variables:
 
 # Build configuration - uses Vite build
 build_env_variables:
-  VITE_API_URL: "https://api-dot-bezhas-production.uc.r.appspot.com"
-  VITE_WS_URL: "wss://api-dot-bezhas-production.uc.r.appspot.com"
+  VITE_API_URL: "https://totemic-bonus-479312-c6.ew.r.appspot.com"
+  VITE_WS_URL: "wss://totemic-bonus-479312-c6.ew.r.appspot.com"
   VITE_CHAIN_ID: "137"
   VITE_NETWORK: "polygon"
 
-# Handlers for static files
-handlers:
-  # Static assets with long cache
-  - url: /assets/(.*)
-    static_files: dist/assets/\1
-    upload: dist/assets/.*
-    secure: always
-    expiration: "365d"
-    http_headers:
-      Cache-Control: "public, max-age=31536000, immutable"
-      X-Content-Type-Options: "nosniff"
+# Handlers removed for dynamic Node.js runtime (build on cloud)
+# App Engine will run 'npm start' which serves the built 'dist' folder
 
-  # PWA manifest
-  - url: /manifest.json
-    static_files: dist/manifest.json
-    upload: dist/manifest.json
-    secure: always
-    expiration: "1d"
-
-  # Service worker
-  - url: /sw.js
-    static_files: dist/sw.js
-    upload: dist/sw.js
-    secure: always
-    expiration: "0s"
-    http_headers:
-      Cache-Control: "no-cache, no-store, must-revalidate"
-
-  # PWA icons
-  - url: /(pwa-.*.png)
-    static_files: dist/\1
-    upload: dist/pwa-.*.png
-    secure: always
-    expiration: "30d"
-
-  # Favicon
-  - url: /favicon.ico
-    static_files: dist/favicon.ico
-    upload: dist/favicon.ico
-    secure: always
-    expiration: "7d"
-
-  # Logo
-  - url: /logo.png
-    static_files: dist/logo.png
-    upload: dist/logo.png
-    secure: always
-    expiration: "7d"
-
-  # SPA fallback - all other routes to index.html
-  - url: /.*
-    static_files: dist/index.html
-    upload: dist/index.html
-    secure: always
-    expiration: "5m"
-    http_headers:
-      Cache-Control: "public, max-age=300"
-      X-Frame-Options: "SAMEORIGIN"
-      X-Content-Type-Options: "nosniff"
-      X-XSS-Protection: "1; mode=block"
-      Referrer-Policy: "strict-origin-when-cross-origin"

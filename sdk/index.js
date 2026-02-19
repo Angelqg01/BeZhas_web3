@@ -7,21 +7,45 @@
 
 const BeZhasUniversal = require('./bezhas-universal');
 
+// Smart Contracts Export
+const contractsModule = require('./contracts');
+
 // Export Main Class
 // Allows: import { BeZhas } from '@bezhas/sdk'
 class BeZhas extends BeZhasUniversal {
     constructor(config) {
         super(config);
     }
+
+    // Proxy methods for contracts
+    getContract(contractName, network) {
+        return contractsModule.getContract(contractName, network || this.config.network || 'amoy');
+    }
+
+    getAddresses(network) {
+        return contractsModule.getAddresses(network || this.config.network || 'amoy');
+    }
+
+    getABI(contractName) {
+        return contractsModule.getABI(contractName);
+    }
+
+    listContracts() {
+        return contractsModule.listContracts();
+    }
+
+    isDeployed(contractName, network) {
+        return contractsModule.isDeployed(contractName, network || this.config.network || 'amoy');
+    }
 }
 
 // Named exports for specific modules if needed
-const { RealEstateModule } = require('./modules/RealEstateModule');
-const { HealthcareModule } = require('./modules/HealthcareModule');
-const { AutomotiveModule } = require('./modules/AutomotiveModule');
-const { ManufacturingModule } = require('./modules/ManufacturingModule');
-const { EnergyModule } = require('./modules/EnergyModule');
-const { AgricultureModule } = require('./modules/AgricultureModule');
+const RealEstateModule = require('./modules/RealEstateModule');
+const HealthcareModule = require('./modules/HealthcareModule');
+const AutomotiveModule = require('./modules/AutomotiveModule');
+const ManufacturingModule = require('./modules/ManufacturingModule');
+const EnergyModule = require('./modules/EnergyModule');
+const AgricultureModule = require('./modules/AgricultureModule');
 
 // Platform Service Modules
 const VIPSubscriptionManager = require('./vip');
@@ -31,8 +55,8 @@ const RWAManager = require('./rwa');
 const LogisticsManager = require('./logistics');
 const MCPClient = require('./mcp-integration');
 
-// Smart Contracts Export
-const contractsModule = require('./contracts');
+// Smart Contracts Export (redundant but kept for named exports below)
+// const contractsModule = require('./contracts');
 
 module.exports = {
     BeZhas,

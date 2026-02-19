@@ -7,8 +7,9 @@ import {
     ShieldCheck, Coins, Globe2, BrainCircuit, ArrowRight,
     CheckCircle2, Code2, Terminal, LayoutGrid, ChevronRight,
     Layers, Vote, Percent, Twitter, Github, Disc,
-    Zap, Lock, TrendingUp, Activity, X
+    Zap, Lock, TrendingUp, Activity, X, Briefcase, User, Building2
 } from 'lucide-react';
+import ConnectWalletModal from '../components/auth/ConnectWalletModal';
 
 // Components
 import CosmosCanvas from '../components/landing/CosmosCanvas';
@@ -23,11 +24,47 @@ const LandingPage = () => {
     const { isConnected } = useAccount();
     const [scrolled, setScrolled] = useState(false);
     const [showRegisterModal, setShowRegisterModal] = useState(false);
+    const [showConnectWalletModal, setShowConnectWalletModal] = useState(false);
+    const [regMethod, setRegMethod] = useState('email'); // 'email' | 'wallet'
+    const [formData, setFormData] = useState({
+        email: '', password: '', username: '', accountType: 'individual',
+        companyName: '', industry: 'Technology', phone: '', taxId: ''
+    });
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
 
-    // Handle registration methods
     const handleWalletRegister = () => {
         open();
         setShowRegisterModal(false);
+    };
+
+    const handleEmailRegister = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+
+        try {
+            const response = await fetch('/api/auth/register-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+            const data = await response.json();
+
+            if (response.ok) {
+                // Save auth & Close Modal
+                localStorage.setItem('auth', JSON.stringify(data));
+                setShowRegisterModal(false);
+                // Open Connect Wallet Suggestion
+                setShowConnectWalletModal(true);
+            } else {
+                setError(data.error || 'Error al registrarse');
+            }
+        } catch (err) {
+            setError('Error de conexión');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleGoogleSuccess = async (credentialResponse) => {
@@ -527,7 +564,26 @@ const LandingPage = () => {
             {/* Registration Modal */}
             {showRegisterModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-                    <div className="relative bg-gradient-to-br from-gray-900 to-black border border-white/10 rounded-2xl max-w-md w-full p-8 shadow-2xl animate-slideUp">
+                    <div className="relative bg-[#0f0f16] border border-white/10 rounded-2xl max-w-md w-full p-8 shadow-2xl animate-slideUp overflow-hidden">
+
+                        {/* Tabs */}
+                        <div className="flex border-b border-white/10 mb-6">
+                            <button
+                                onClick={() => setRegMethod('email')}
+                                className={`flex-1 pb-3 text-sm font-medium transition-colors relative ${regMethod === 'email' ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                            >
+                                Email / Empresa
+                                {regMethod === 'email' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-purple-500 rounded-t-full" />}
+                            </button>
+                            <button
+                                onClick={() => setRegMethod('wallet')}
+                                className={`flex-1 pb-3 text-sm font-medium transition-colors relative ${regMethod === 'wallet' ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                            >
+                                Web3 Wallet
+                                {regMethod === 'wallet' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-purple-500 rounded-t-full" />}
+                            </button>
+                        </div>
+
                         {/* Close Button */}
                         <button
                             onClick={() => setShowRegisterModal(false)}
@@ -536,75 +592,167 @@ const LandingPage = () => {
                             <X className="w-6 h-6" />
                         </button>
 
-                        {/* Header */}
-                        <div className="text-center mb-8">
-                            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full mb-4">
-                                <Zap className="w-8 h-8 text-white" />
-                            </div>
-                            <h2 className="text-2xl font-bold text-white mb-2">Únete a BeZhas</h2>
-                            <p className="text-gray-400 text-sm">Elige tu método de registro preferido</p>
-                        </div>
-
-                        {/* Registration Options */}
-                        <div className="space-y-3">
-                            {/* Wallet Registration */}
-                            <button
-                                onClick={handleWalletRegister}
-                                className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-xl font-semibold text-white transition-all hover:shadow-[0_0_30px_-5px_rgba(168,85,247,0.5)] group"
-                            >
-                                <ShieldCheck className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                                Conectar con Wallet
-                                <span className="ml-auto text-xs bg-white/20 px-2 py-1 rounded-full">Recomendado</span>
-                            </button>
-
-                            {/* Divider */}
-                            <div className="relative py-3">
-                                <div className="absolute inset-0 flex items-center">
-                                    <div className="w-full border-t border-white/10"></div>
+                        {/* Content */}
+                        {regMethod === 'wallet' ? (
+                            <div className="space-y-4 animate-fadeIn">
+                                <div className="text-center mb-6">
+                                    <div className="inline-flex items-center justify-center w-12 h-12 bg-purple-500/20 rounded-full mb-3 text-purple-400">
+                                        <Wallet className="w-6 h-6" />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-white">Conectar Billetera</h3>
+                                    <p className="text-sm text-gray-400 mt-2">Acceso instantáneo sin contraseñas.</p>
                                 </div>
-                                <div className="relative flex justify-center text-xs">
-                                    <span className="bg-gray-900 px-2 text-gray-500">o continuar con</span>
+                                <button
+                                    onClick={handleWalletRegister}
+                                    className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-xl font-semibold text-white transition-all hover:shadow-[0_0_30px_-5px_rgba(168,85,247,0.5)] group"
+                                >
+                                    <ShieldCheck className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                                    Conectar Metamask / Rabbit
+                                </button>
+                                <div className="relative py-3">
+                                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10"></div></div>
+                                    <div className="relative flex justify-center text-xs"><span className="bg-[#0f0f16] px-2 text-gray-500">SEGURO & PRIVADO</span></div>
                                 </div>
                             </div>
+                        ) : (
+                            <form onSubmit={handleEmailRegister} className="space-y-4 animate-fadeIn">
+                                {error && <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs">{error}</div>}
 
-                            {/* Google Registration */}
-                            <div className="w-full flex justify-center">
-                                <SafeGoogleLogin
-                                    onSuccess={handleGoogleSuccess}
-                                    onError={() => console.warn('Google Login not available')}
-                                    useOneTap={false}
-                                    type="standard"
-                                    theme="filled_blue"
-                                    size="large"
-                                    text="continue_with"
-                                    shape="rectangular"
-                                    logo_alignment="left"
-                                    width="380"
-                                />
-                            </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="col-span-2">
+                                        <label className="text-xs text-gray-400 mb-1 block">Tipo de Cuenta</label>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {['individual', 'freelancer', 'company'].map(type => (
+                                                <button
+                                                    key={type}
+                                                    type="button"
+                                                    onClick={() => setFormData({ ...formData, accountType: type })}
+                                                    className={`px-2 py-2 rounded-lg text-xs font-medium border transition-all ${formData.accountType === type
+                                                            ? 'bg-purple-600 border-purple-500 text-white'
+                                                            : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
+                                                        }`}
+                                                >
+                                                    {type === 'individual' ? 'Personal' : type === 'freelancer' ? 'Autónomo' : 'Empresa'}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
 
-                            {/* GitHub Registration */}
-                            <button
-                                onClick={handleGithubRegister}
-                                className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-gray-800 hover:bg-gray-700 rounded-xl font-semibold text-white transition-all hover:shadow-lg group border border-white/10"
-                            >
-                                <Github className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                                Continuar con GitHub
-                            </button>
-                        </div>
+                                    {formData.accountType !== 'individual' && (
+                                        <>
+                                            <div className="col-span-2">
+                                                <input
+                                                    type="text"
+                                                    placeholder={formData.accountType === 'company' ? "Nombre de la Empresa" : "Nombre Comercial"}
+                                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white focus:border-purple-500 focus:outline-none transition-colors"
+                                                    value={formData.companyName}
+                                                    onChange={e => setFormData({ ...formData, companyName: e.target.value })}
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <select
+                                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white focus:border-purple-500 focus:outline-none"
+                                                    value={formData.industry}
+                                                    onChange={e => setFormData({ ...formData, industry: e.target.value })}
+                                                >
+                                                    {['Logistics', 'Retail', 'Real Estate', 'Finance', 'Technology', 'Other'].map(i => (
+                                                        <option key={i} value={i} className="bg-black">{i}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Tax ID / CIF"
+                                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white focus:border-purple-500 focus:outline-none"
+                                                    value={formData.taxId}
+                                                    onChange={e => setFormData({ ...formData, taxId: e.target.value })}
+                                                />
+                                            </div>
+                                        </>
+                                    )}
+
+                                    <div className="col-span-2">
+                                        <input
+                                            type="email"
+                                            placeholder="Correo Electrónico"
+                                            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white focus:border-purple-500 focus:outline-none transition-colors"
+                                            value={formData.email}
+                                            onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="col-span-2">
+                                        <input
+                                            type="password"
+                                            placeholder="Contraseña"
+                                            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white focus:border-purple-500 focus:outline-none transition-colors"
+                                            value={formData.password}
+                                            onChange={e => setFormData({ ...formData, password: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="w-full py-3 bg-white text-black hover:bg-gray-200 rounded-xl font-bold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {loading ? 'Creando cuenta...' : 'Crear Cuenta'}
+                                </button>
+
+                                <div className="text-center">
+                                    <div className="relative py-2">
+                                        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10"></div></div>
+                                        <div className="relative flex justify-center text-xs"><span className="bg-[#0f0f16] px-2 text-gray-500">o registrarse con</span></div>
+                                    </div>
+                                    <div className="flex gap-2 justify-center mt-2">
+                                        <SafeGoogleLogin
+                                            onSuccess={handleGoogleSuccess}
+                                            onError={() => console.warn('Google Login not available')}
+                                            useOneTap={false}
+                                            type="icon"
+                                            theme="filled_black"
+                                            size="medium"
+                                            shape="circle"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleGithubRegister}
+                                            className="w-10 h-10 flex items-center justify-center bg-gray-800 rounded-full hover:bg-gray-700 transition-colors"
+                                        >
+                                            <Github className="w-5 h-5 text-white" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        )}
 
                         {/* Terms */}
                         <p className="text-xs text-gray-500 text-center mt-6">
                             Al registrarte, aceptas nuestros{' '}
-                            <Link to="/terms" className="text-purple-400 hover:text-purple-300">Términos de Servicio</Link>
+                            <Link to="/terms" className="text-purple-400 hover:text-purple-300">Términos</Link>
                             {' '}y{' '}
-                            <Link to="/privacy" className="text-purple-400 hover:text-purple-300">Política de Privacidad</Link>
+                            <Link to="/privacy" className="text-purple-400 hover:text-purple-300">Privacidad</Link>
                         </p>
                     </div>
                 </div>
             )}
+
+            {/* Wallet Suggestion Modal */}
+            <ConnectWalletModal
+                isOpen={showConnectWalletModal}
+                onClose={() => setShowConnectWalletModal(false)}
+                onSkip={() => {
+                    setShowConnectWalletModal(false);
+                    navigate('/feed');
+                }}
+            />
         </div>
     );
 };
+
 
 export default LandingPage;

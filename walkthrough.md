@@ -221,9 +221,29 @@ Default: US, EU, UK (editable)
 
 ### Settings Not Reflecting
 1. Clear browser cache
-2. Hard refresh (Ctrl+F5)
+2. Hard refresh
 3. Check if maintenance mode is enabled
 4. Verify backend is running
+
+### 4. GCP Deployment [NEW]
+### 4. GCP Deployment [NEW]
+### 4. GCP Deployment [NEW]
+- **Status:** Failed (Build ID: `2fb2e424-5aa5-4741-ae83-ec32febcdd0c`).
+- **Reason:** `ReplyError: ERR max requests limit exceeded` from Redis (Upstash) caused backend startup crash.
+- **Status:** In Progress (Build ID: `a6724bd3-3101-4cd9-a6c6-406c46711984`).
+- **Action:** Redeploying with Redis connection resilience fix.
+- **Fail:** Build `a6724bd3` failed with recurred `pathRegexp` error.
+- **Fix:** Updated root `package.json` overrides to pin `path-to-regexp` to `0.1.7` (downgrading from `>=0.1.12`).
+- **Action:** Redeploying after fixing Express/path-to-regexp version conflict.
+- **Changes:**
+  - **Dependency Fix:** Added `path-to-regexp: 0.1.7` to `backend/package.json` to resolve `TypeError: pathRegexp is not a function`.
+  - **Crash Fix:** Removed `--gc-interval=100` from `NODE_OPTIONS`.
+  - **Port Fix:** Confirmed `PORT=8080` is now correctly set.
+  - **Optimization:** Maintaining 2vCPU/2GiB RAM configuration.
+
+## Next Steps
+1. Monitor Cloud Build.
+2. Verify service startup in Cloud Run logs.
 
 ### Access Denied
 1. Ensure you're logged in as admin
