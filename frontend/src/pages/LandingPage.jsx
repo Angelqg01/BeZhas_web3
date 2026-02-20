@@ -7,7 +7,7 @@ import {
     ShieldCheck, Coins, Globe2, BrainCircuit, ArrowRight,
     CheckCircle2, Code2, Terminal, LayoutGrid, ChevronRight,
     Layers, Vote, Percent, Twitter, Github, Disc,
-    Zap, Lock, TrendingUp, Activity, X, Briefcase, User, Building2
+    Zap, Lock, TrendingUp, Activity, X, Briefcase, User, Building2, Wallet
 } from 'lucide-react';
 import ConnectWalletModal from '../components/auth/ConnectWalletModal';
 
@@ -628,8 +628,8 @@ const LandingPage = () => {
                                                     type="button"
                                                     onClick={() => setFormData({ ...formData, accountType: type })}
                                                     className={`px-2 py-2 rounded-lg text-xs font-medium border transition-all ${formData.accountType === type
-                                                            ? 'bg-purple-600 border-purple-500 text-white'
-                                                            : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
+                                                        ? 'bg-purple-600 border-purple-500 text-white'
+                                                        : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
                                                         }`}
                                                 >
                                                     {type === 'individual' ? 'Personal' : type === 'freelancer' ? 'Autónomo' : 'Empresa'}
