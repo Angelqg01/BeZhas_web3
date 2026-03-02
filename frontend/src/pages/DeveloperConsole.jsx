@@ -3,7 +3,7 @@ import {
     Terminal as TerminalIcon, Lock as LockIcon, Globe as GlobeIcon, Bell as BellIcon,
     ShoppingCart as ShoppingCartIcon, Truck as TruckIcon, Briefcase as BriefcaseIcon, Building as BuildingIcon, Activity as ActivityIcon,
     Key as KeyIcon, Plus as PlusIcon, Eye as EyeIcon, EyeOff as EyeOffIcon, Copy as CopyIcon, RefreshCw as RefreshCwIcon, Trash2 as Trash2Icon,
-    Shield as ShieldIcon, Check as CheckIcon, XAlt as XAltIcon, Settings as SettingsIcon,
+    Shield as ShieldIcon, Check as CheckIcon, X as XAltIcon, Settings as SettingsIcon,
     FileCode as FileCodeIcon, Code as CodeIcon,
     Zap as ZapIcon, Cpu as CpuIcon, BarChart2 as BarChart2Icon,
     Search as SearchIcon, User as UserIcon, DollarSign as DollarSignIcon, Wallet as WalletIcon
@@ -11,7 +11,6 @@ import {
 import http from '../services/http';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
-import MainLayout from '../components/layout/MainLayout';
 
 // Sub-components
 import McpSdkDownloadTab from '../components/developer-console/McpSdkDownloadTab';
@@ -21,6 +20,7 @@ import EmbedWidgetsTab from '../components/developer-console/EmbedWidgetsTab';
 import DocumentationTab from '../components/developer-console/DocumentationTab';
 import LoyaltyMetricsTab from '../components/developer-console/LoyaltyMetricsTab';
 import { EmptyState, ApiKeyCard, CreateKeyModal, KeyRevealModal, KeyDetailsModal } from '../components/developer-console/ApiKeyManagement';
+import BeZhasLogisticsSimulator from '../components/logistics/BeZhasLogisticsSimulator';
 
 // Constantes y Mapeos
 const PERMISSION_MODULES = {
@@ -35,12 +35,98 @@ const PERMISSION_MODULES = {
 
 const DeveloperConsole = () => {
     const { user } = useAuth();
-    // ... (state remains same)
+    const address = user?.walletAddress;
+    const isConnected = !!user;
+    const [apiKeys, setApiKeys] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [selectedKey, setSelectedKey] = useState(null);
+    const [showKeyModal, setShowKeyModal] = useState(false);
+    const [newKeyData, setNewKeyData] = useState(null);
+    const [activeTab, setActiveTab] = useState('simulator');
+    const [backendAvailable, setBackendAvailable] = useState(true);
+    const [usageStats, setUsageStats] = useState(null);
 
-    // ... (effects and handlers remain same)
+    useEffect(() => {
+        fetchApiKeys();
+        if (isConnected && address) {
+            fetchUsageStats();
+        }
+    }, [isConnected, address]);
+
+    const fetchApiKeys = async () => {
+        try {
+            if (!isConnected) {
+                setApiKeys([]);
+                setLoading(false);
+                return;
+            }
+            const response = await http.get('/api/developer/keys', { timeout: 5000 });
+            setApiKeys(response.data.data || []);
+            setBackendAvailable(true);
+        } catch (error) {
+            setBackendAvailable(false);
+            setApiKeys([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchUsageStats = async () => {
+        try {
+            if (!address) return;
+            const response = await http.get(`/api/developer/usage-stats/${address}`, { timeout: 5000 });
+            if (response.data.success) {
+                setUsageStats(response.data.data);
+            }
+        } catch (error) {
+            console.error('Error fetching usage stats:', error);
+        }
+    };
+
+    const handleCreateKey = async (formData) => {
+        try {
+            if (!isConnected || !address) {
+                toast.error('Debes iniciar sesión para crear API Keys');
+                return;
+            }
+            const response = await http.post('/api/developer/keys', formData);
+            setNewKeyData(response.data.data);
+            setShowKeyModal(true);
+            setShowCreateModal(false);
+            fetchApiKeys();
+            toast.success('API Key creada exitosamente');
+        } catch (error) {
+            toast.error(error.response?.data?.error || 'Error al crear API Key');
+        }
+    };
+
+    const handleDeleteKey = async (keyId) => {
+        if (!window.confirm('¿Estás seguro? Esta acción no se puede deshacer.')) return;
+        try {
+            await http.delete(`/api/developer/keys/${keyId}`);
+            toast.success('API Key revocada');
+            fetchApiKeys();
+        } catch (error) {
+            toast.error(error.response?.data?.error || 'Error al revocar API Key');
+        }
+    };
+
+    const handleRotateKey = async (keyId) => {
+        if (!window.confirm('¿Rotar esta clave? La anterior dejará de funcionar.')) return;
+        try {
+            const response = await http.post(`/api/developer/keys/${keyId}/rotate`);
+            setNewKeyData(response.data.data);
+            setShowKeyModal(true);
+            fetchApiKeys();
+            toast.success('Clave rotada exitosamente');
+        } catch (error) {
+            toast.error(error.response?.data?.error || 'Error al rotar clave');
+        }
+    };
 
     return (
-        <MainLayout>
+        <>
             <div className="container mx-auto px-6 py-8">
                 {/* Header Section */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -67,6 +153,7 @@ const DeveloperConsole = () => {
                 {/* Tabs Navigation */}
                 <div className="flex overflow-x-auto gap-2 mb-8 pb-2 scrollbar-hide">
                     {[
+                        { id: 'simulator', label: 'SDK Simulator', icon: ZapIcon },
                         { id: 'keys', label: 'API Keys', icon: KeyIcon },
                         { id: 'downloads', label: 'Downloads (MCP)', icon: TerminalIcon }, // NEW
                         { id: 'sdk', label: 'Integración SDK', icon: FileCodeIcon },
@@ -97,6 +184,13 @@ const DeveloperConsole = () => {
                         </div>
                     ) : (
                         <>
+                            {/* TAB: SIMULATOR */}
+                            {activeTab === 'simulator' && (
+                                <div className="mb-6">
+                                    <BeZhasLogisticsSimulator />
+                                </div>
+                            )}
+
                             {/* TAB: API KEYS */}
                             {activeTab === 'keys' && (
                                 <div className="space-y-6">
@@ -193,7 +287,7 @@ const DeveloperConsole = () => {
                     />
                 )}
             </div>
-        </MainLayout>
+        </>
     );
 };
 
