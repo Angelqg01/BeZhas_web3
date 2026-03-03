@@ -59,7 +59,7 @@
     "node-cron": "^3.0.3",
     "openai": "^6.15.0",
     "otplib": "^13.2.1",
-    "pino": "^9.14.0",
+    "pino": "^10.3.1",
     "pino-pretty": "^11.3.0",
     "path-to-regexp": "0.1.7",
     "prom-client": "^15.1.3",
